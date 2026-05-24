@@ -1,21 +1,23 @@
 from datetime import datetime, timedelta, timezone
 
+import bcrypt
 from jose import jwt
-from passlib.context import CryptContext
 
 from app.core.config import settings
 
-# cost factor 12 is explicit — passlib's default (12) can change across versions.
-# Setting it explicitly ensures consistent hashing cost regardless of library updates.
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto", bcrypt__rounds=12)
+# bcrypt cost factor 12 — balances security and hashing speed (~250ms on modern hardware).
+# passlib is intentionally NOT used: passlib 1.7.x is incompatible with bcrypt >= 4.x
+# (passlib probes for wrap-bugs using a 100-byte password, which bcrypt 5.x rejects).
+_BCRYPT_ROUNDS = 12
 
 
 def hash_password(password: str) -> str:
-    return pwd_context.hash(password)
+    # bcrypt.hashpw expects bytes; encode to UTF-8 before hashing.
+    return bcrypt.hashpw(password.encode(), bcrypt.gensalt(rounds=_BCRYPT_ROUNDS)).decode()
 
 
 def verify_password(plain: str, hashed: str) -> bool:
-    return pwd_context.verify(plain, hashed)
+    return bcrypt.checkpw(plain.encode(), hashed.encode())
 
 
 def create_access_token(subject: str) -> str:
