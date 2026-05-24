@@ -1,0 +1,16 @@
+# Environment
+.env
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+
+# Planning artifacts (local only, not for source control)
+plans/
+
+# Claude Code local settings (machine-specific, not shared)
+.claude/settings.local.json
+
+.DS_Store

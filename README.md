@@ -1,0 +1,45 @@
+# vetlanh-be
+
+FastAPI backend with async PostgreSQL.
+
+## Requirements
+
+- Python 3.11+
+- Docker & Docker Compose
+
+## Setup
+
+```bash
+# 1. Clone and enter project
+git clone <repo-url>
+cd vetlanh-be
+
+# 2. Create virtual environment
+python3.11 -m venv .venv
+source .venv/bin/activate  # Windows: .venv\Scripts\activate
+
+# 3. Install dependencies
+pip install -r requirements.txt
+
+# 4. Copy environment file
+cp .env.example .env
+# Edit .env and set SECRET_KEY to a random value
+
+# 5. Start PostgreSQL
+docker compose up -d --wait
+
+# 6. Run database migrations
+alembic upgrade head
+
+# 7. Start the app
+uvicorn app.main:app --reload
+```
+
+## API
+
+- `GET  /api/v1/health`          — health check (DB connectivity)
+- `POST /api/v1/auth/register`   — register a new user
+- `POST /api/v1/auth/login`      — login, returns JWT token
+- `GET  /api/v1/users/me`        — get current user (requires Bearer token)
+
+Interactive docs: http://localhost:8000/docs

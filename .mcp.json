@@ -1,0 +1,11 @@
+{
+  "sequential-thinking": {
+    "command": "npx",
+    "args": ["-y", "@modelcontextprotocol/server-sequential-thinking"]
+  },
+  "token-optimizer": {
+    "command": "npx",
+    "args": ["-y", "token-optimizer-mcp"],
+    "description": "Token optimization for 95%+ context reduction via content deduplication and compression"
+  }
+}
