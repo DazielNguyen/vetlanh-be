@@ -13,4 +13,5 @@ plans/
 # Claude Code local settings (machine-specific, not shared)
 .claude/settings.local.json
 
+.claude/session-data/
 .DS_Store
