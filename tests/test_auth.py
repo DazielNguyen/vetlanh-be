@@ -1,73 +1,108 @@
 """
-Quick smoke tests for Phase 1 — Email Verification.
-Run: python scripts/test_auth.py
+Integration tests for authentication endpoints.
+
+Uses httpx.AsyncClient in-process — no real server, but real DB transactions.
+The `client` and `clean_db` fixtures come from conftest.py.
 """
-import json
-import urllib.request
-import urllib.error
 
-BASE = "http://localhost:8001/api/v1"
+import pytest
+from httpx import AsyncClient
 
 
-def post(path: str, body: dict) -> tuple[int, dict]:
-    data = json.dumps(body).encode()
-    req = urllib.request.Request(
-        f"{BASE}{path}",
-        data=data,
-        headers={"Content-Type": "application/json"},
-        method="POST",
-    )
-    try:
-        with urllib.request.urlopen(req) as resp:
-            return resp.status, json.loads(resp.read())
-    except urllib.error.HTTPError as e:
-        return e.code, json.loads(e.read())
+# Helper so tests read like plain English
+def reg_body(email: str, pw: str = "securepass1") -> dict:
+    return {"email": email, "password": pw}
 
 
-def get(path: str) -> tuple[int, dict]:
-    req = urllib.request.Request(f"{BASE}{path}", method="GET")
-    try:
-        with urllib.request.urlopen(req) as resp:
-            return resp.status, json.loads(resp.read())
-    except urllib.error.HTTPError as e:
-        return e.code, json.loads(e.read())
+class TestRegister:
+    async def test_short_password_returns_422(self, client: AsyncClient):
+        resp = await client.post("/api/v1/auth/register", json=reg_body("a@test.vetlanh", "short"))
+        assert resp.status_code == 422
+
+    async def test_success_returns_201_and_unverified(self, client: AsyncClient):
+        resp = await client.post("/api/v1/auth/register", json=reg_body("new@test.vetlanh"))
+        assert resp.status_code == 201
+        body = resp.json()
+        assert body["email"] == "new@test.vetlanh"
+        assert body["is_verified"] is False
+
+    async def test_duplicate_email_returns_409(self, client: AsyncClient):
+        payload = reg_body("dup@test.vetlanh")
+        await client.post("/api/v1/auth/register", json=payload)
+        resp = await client.post("/api/v1/auth/register", json=payload)
+        assert resp.status_code == 409
+
+    async def test_sends_verification_email(self, client: AsyncClient, mock_email):
+        await client.post("/api/v1/auth/register", json=reg_body("email@test.vetlanh"))
+        mock_email.assert_called_once()
+        # First arg to send_verification_email is the recipient email
+        assert mock_email.call_args.args[0] == "email@test.vetlanh"
 
 
-def check(label: str, condition: bool, detail: str = "") -> None:
-    symbol = "✅" if condition else "❌"
-    print(f"  {symbol} {label}{(' — ' + detail) if detail else ''}")
+class TestLogin:
+    async def test_unverified_user_returns_403(self, client: AsyncClient):
+        await client.post("/api/v1/auth/register", json=reg_body("unverified@test.vetlanh"))
+        resp = await client.post("/api/v1/auth/login", json=reg_body("unverified@test.vetlanh"))
+        assert resp.status_code == 403
+        assert "verify" in resp.json()["detail"].lower()
+
+    async def test_wrong_credentials_returns_401(self, client: AsyncClient):
+        resp = await client.post(
+            "/api/v1/auth/login",
+            json=reg_body("ghost@test.vetlanh", "anypassword"),
+        )
+        assert resp.status_code == 401
 
 
-print("\n=== Phase 1: Email Verification Smoke Tests ===\n")
+class TestVerifyEmail:
+    async def test_invalid_token_returns_400(self, client: AsyncClient):
+        resp = await client.get("/api/v1/auth/verify?token=INVALID_TOKEN")
+        assert resp.status_code == 400
 
-# Test 1: password too short → 422
-creds_short = {"email": "a@example.com", "p" + "assword": "abc"}
-status, body = post("/auth/register", creds_short)
-check("Password < 8 chars → 422", status == 422, f"got {status}")
+    async def test_valid_token_marks_user_verified(self, client: AsyncClient):
+        # Register → capture the token that would have been emailed
+        mock_calls = []
 
-# Test 2: register success → 201, is_verified=False
-import time
-unique = str(int(time.time()))
-creds_ok = {"email": f"user{unique}@example.com", "p" + "assword": "securepass1"}
-status, body = post("/auth/register", creds_ok)
-check("Register → 201", status == 201, f"got {status}")
-check("is_verified=False on register", body.get("is_verified") is False, str(body))
+        async def capture(*args, **kwargs):
+            mock_calls.append(args)
 
-# Test 3: login before verification → 403
-status, body = post("/auth/login", creds_ok)
-check("Login unverified → 403", status == 403, f"got {status}: {body.get('detail')}")
+        import unittest.mock as mock
+        with mock.patch("app.api.v1.endpoints.auth.send_verification_email", side_effect=capture):
+            await client.post("/api/v1/auth/register", json=reg_body("verify@test.vetlanh"))
 
-# Test 4: verify with bad token → 400
-status, body = get("/auth/verify?token=INVALID_TOKEN_XYZ")
-check("Verify bad token → 400", status == 400, f"got {status}: {body.get('detail')}")
+        # The second arg is the token
+        token = mock_calls[0][1]
 
-# Test 5: duplicate email → 409
-status, body = post("/auth/register", creds_ok)
-check("Duplicate email → 409", status == 409, f"got {status}: {body.get('detail')}")
+        resp = await client.get(f"/api/v1/auth/verify?token={token}")
+        assert resp.status_code == 200
+        assert "verified" in resp.json()["message"].lower()
 
-# Test 6: resend (always 200, message same regardless)
-resend_body = {"email": creds_ok["email"]}
-status, body = post("/auth/resend-verification", resend_body)
-check("Resend → 200", status == 200, f"got {status}: {body.get('message','')[:60]}")
 
-print()
+class TestResendVerification:
+    async def test_unregistered_email_still_returns_200(self, client: AsyncClient):
+        # Anti-enumeration: same response whether email exists or not
+        resp = await client.post(
+            "/api/v1/auth/resend-verification",
+            json={"email": "ghost@test.vetlanh"},
+        )
+        assert resp.status_code == 200
+
+    async def test_already_verified_returns_400(self, client: AsyncClient):
+        # Register then manually verify via the token
+        captured = []
+
+        async def capture(*args, **kwargs):
+            captured.append(args)
+
+        import unittest.mock as mock
+        with mock.patch("app.api.v1.endpoints.auth.send_verification_email", side_effect=capture):
+            await client.post("/api/v1/auth/register", json=reg_body("resend@test.vetlanh"))
+
+        token = captured[0][1]
+        await client.get(f"/api/v1/auth/verify?token={token}")
+
+        resp = await client.post(
+            "/api/v1/auth/resend-verification",
+            json={"email": "resend@test.vetlanh"},
+        )
+        assert resp.status_code == 400
