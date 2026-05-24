@@ -17,6 +17,10 @@ from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
+# Mailtrap port 2525 is plain SMTP — no TLS needed (sandbox env).
+# For production (port 587), set SMTP_USE_TLS=true in .env.
+_TLS_PORTS = {465, 587}
+
 
 async def send_verification_email(to_email: str, token: str) -> None:
     """Send an email with a one-click verification link.
@@ -51,6 +55,11 @@ async def send_verification_email(to_email: str, token: str) -> None:
     """
     message.attach(MIMEText(html_body, "html"))
 
+    # Use STARTTLS only on standard secure ports.
+    # Mailtrap sandbox (port 2525) is plain SMTP — sending start_tls=True causes
+    # an "Unexpected EOF" because the server closes the connection instead.
+    use_tls = settings.SMTP_PORT in _TLS_PORTS
+
     try:
         await aiosmtplib.send(
             message,
@@ -58,7 +67,7 @@ async def send_verification_email(to_email: str, token: str) -> None:
             port=settings.SMTP_PORT,
             username=settings.SMTP_USER,
             password=settings.SMTP_PASSWORD,
-            start_tls=True,
+            start_tls=use_tls,
         )
         logger.info("Verification email sent to %s", to_email)
     except Exception:
