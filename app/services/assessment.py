@@ -2,19 +2,20 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.assessment import Assessment
+from app.schemas.assessment import Severity
 
 
 def calculate_phq9(answers: list[int]) -> tuple[int, str]:
     """Return (score, severity) using DSM-5 PHQ-9 cutoffs."""
     score = sum(answers)
     if score <= 4:
-        severity = "Minimal"
+        severity = Severity.MINIMAL
     elif score <= 9:
-        severity = "Mild"
+        severity = Severity.MILD
     elif score <= 14:
-        severity = "Moderate"
+        severity = Severity.MODERATE
     else:
-        severity = "Severe"
+        severity = Severity.SEVERE
     return score, severity
 
 

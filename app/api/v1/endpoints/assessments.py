@@ -3,27 +3,27 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_current_user, get_db
 from app.models.user import User
-from app.schemas.assessment import PHQ9Result, PHQ9SubmitRequest
+from app.schemas.assessment import PHQ9_QUESTIONS, PHQ9Result, PHQ9SubmitRequest
 from app.services.assessment import get_latest_phq9, submit_phq9
+from app.services.goals import suggest_goals
 
 router = APIRouter(prefix="/assessments", tags=["assessments"])
 
-PHQ9_QUESTIONS = [
-    "Ít hứng thú hoặc không thấy vui khi làm việc",
-    "Cảm thấy buồn, chán nản hoặc tuyệt vọng",
-    "Khó ngủ, ngủ không yên giấc, hoặc ngủ quá nhiều",
-    "Cảm thấy mệt mỏi hoặc ít năng lượng",
-    "Ăn không ngon miệng hoặc ăn quá nhiều",
-    "Cảm thấy bản thân tệ — hoặc thất bại, đã phụ lòng bản thân/gia đình",
-    "Khó tập trung vào công việc, như đọc báo hoặc xem TV",
-    "Cử động hoặc nói chuyện chậm chạp đến mức người khác nhận ra; hoặc ngược lại bồn chồn đến mức không ngồi yên được",
-    "Có ý nghĩ rằng thà chết còn hơn, hoặc muốn tự làm hại bản thân",
-]
+
+def _to_result(assessment) -> PHQ9Result:
+    return PHQ9Result(
+        id=assessment.id,
+        score=assessment.score,
+        severity=assessment.severity,
+        answers=[getattr(assessment, f"q{i}") for i in range(1, 10)],
+        questions=PHQ9_QUESTIONS,
+        submitted_at=assessment.created_at,
+        suggested_goals=suggest_goals(assessment.severity),
+    )
 
 
 @router.get("/phq9/questions")
 async def get_phq9_questions():
-    """Return the 9 PHQ-9 questions for display in the frontend."""
     return {"questions": PHQ9_QUESTIONS}
 
 
@@ -34,15 +34,7 @@ async def submit_phq9_assessment(
     db: AsyncSession = Depends(get_db),
 ):
     assessment = await submit_phq9(db, current_user.id, payload.answers)
-    return PHQ9Result(
-        id=assessment.id,
-        score=assessment.score,
-        severity=assessment.severity,
-        answers=[assessment.q1, assessment.q2, assessment.q3, assessment.q4,
-                 assessment.q5, assessment.q6, assessment.q7, assessment.q8, assessment.q9],
-        questions=PHQ9_QUESTIONS,
-        submitted_at=assessment.created_at,
-    )
+    return _to_result(assessment)
 
 
 @router.get("/phq9/latest", response_model=PHQ9Result)
@@ -53,12 +45,4 @@ async def get_latest_phq9_assessment(
     assessment = await get_latest_phq9(db, current_user.id)
     if not assessment:
         raise HTTPException(status_code=404, detail="No PHQ-9 assessment found")
-    return PHQ9Result(
-        id=assessment.id,
-        score=assessment.score,
-        severity=assessment.severity,
-        answers=[assessment.q1, assessment.q2, assessment.q3, assessment.q4,
-                 assessment.q5, assessment.q6, assessment.q7, assessment.q8, assessment.q9],
-        questions=PHQ9_QUESTIONS,
-        submitted_at=assessment.created_at,
-    )
+    return _to_result(assessment)

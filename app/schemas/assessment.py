@@ -2,6 +2,14 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field, field_validator
 
+
+class Severity:
+    MINIMAL = "Minimal"
+    MILD = "Mild"
+    MODERATE = "Moderate"
+    SEVERE = "Severe"
+
+
 PHQ9_QUESTIONS = [
     "Ít hứng thú hoặc không thấy vui khi làm việc",
     "Cảm thấy buồn, chán nản hoặc tuyệt vọng",
@@ -21,9 +29,8 @@ class PHQ9SubmitRequest(BaseModel):
     @field_validator("answers")
     @classmethod
     def validate_answers(cls, v: list[int]) -> list[int]:
-        for i, answer in enumerate(v):
-            if answer not in (0, 1, 2, 3):
-                raise ValueError(f"Answer {i + 1} must be 0, 1, 2, or 3")
+        if not all(a in (0, 1, 2, 3) for a in v):
+            raise ValueError("All answers must be 0, 1, 2, or 3")
         return v
 
 
@@ -34,5 +41,6 @@ class PHQ9Result(BaseModel):
     answers: list[int]
     questions: list[str]
     submitted_at: datetime
+    suggested_goals: list[str] = []
 
     model_config = {"from_attributes": True}

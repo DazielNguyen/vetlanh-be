@@ -1,6 +1,7 @@
 from datetime import datetime
 
 from sqlalchemy import Boolean, DateTime, String
+from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin
@@ -21,5 +22,7 @@ class User(Base, TimestampMixin):
     verification_token_expires_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+
+    goals: Mapped[list] = mapped_column(ARRAY(String(50)), server_default="{}", nullable=False)
 
     assessments = relationship("Assessment", back_populates="user", order_by="Assessment.created_at")

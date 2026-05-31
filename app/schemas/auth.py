@@ -40,6 +40,7 @@ class UserResponse(BaseModel):
     email: str
     is_active: bool
     is_verified: bool
+    goals: list[str] = []
 
     model_config = {"from_attributes": True}
     # hashed_password and verification_token are intentionally absent
