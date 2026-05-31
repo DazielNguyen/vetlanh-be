@@ -16,6 +16,11 @@ class Settings(BaseSettings):
     # Base URL used in email links (set to frontend URL in prod)
     APP_BASE_URL: str = "http://localhost:8000"
 
+    # Google OAuth2 — required only when Google login is enabled
+    GOOGLE_CLIENT_ID: str = ""
+    GOOGLE_CLIENT_SECRET: str = ""
+    GOOGLE_REDIRECT_URI: str = "http://localhost:8000/api/v1/auth/google/callback"
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",

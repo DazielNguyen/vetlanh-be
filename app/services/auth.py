@@ -52,7 +52,15 @@ async def login_user(db: AsyncSession, email: str, password: str) -> str:
     result = await db.execute(select(User).where(User.email == email))
     user = result.scalar_one_or_none()
 
-    if not user or not verify_password(password, user.hashed_password):
+    # OAuth-only users have no password — surface a clear message rather than a
+    # confusing "Invalid credentials" that would make them try forever.
+    if user and user.auth_provider != "email":
+        raise HTTPException(
+            status_code=400,
+            detail="This account uses Google login. Please sign in with Google.",
+        )
+
+    if not user or not user.hashed_password or not verify_password(password, user.hashed_password):
         # Return the same error for "wrong email" and "wrong password" —
         # different messages would let attackers enumerate valid emails.
         raise HTTPException(status_code=401, detail="Invalid credentials")

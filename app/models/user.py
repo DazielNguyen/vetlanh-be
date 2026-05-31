@@ -12,8 +12,13 @@ class User(Base, TimestampMixin):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False, index=True)
-    hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
+    # nullable=True: OAuth users have no password
+    hashed_password: Mapped[str | None] = mapped_column(String(255), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    # "email" for standard registration, "google" for OAuth users
+    auth_provider: Mapped[str] = mapped_column(String(20), nullable=False, server_default="email")
+    google_id: Mapped[str | None] = mapped_column(String(128), nullable=True, unique=True)
 
     # Email verification — False until user clicks the link in their inbox
     is_verified: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
