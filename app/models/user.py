@@ -35,3 +35,4 @@ class User(Base, TimestampMixin):
     timezone: Mapped[str | None] = mapped_column(String(64), nullable=True, server_default="Asia/Ho_Chi_Minh")
 
     assessments = relationship("Assessment", back_populates="user", order_by="Assessment.created_at")
+    conversations = relationship("Conversation", back_populates="user", order_by="Conversation.created_at")
