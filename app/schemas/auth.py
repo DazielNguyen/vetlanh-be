@@ -41,6 +41,9 @@ class UserResponse(BaseModel):
     is_active: bool
     is_verified: bool
     goals: list[str] = []
+    display_name: str | None = None
+    avatar_url: str | None = None
+    timezone: str | None = None
 
     model_config = {"from_attributes": True}
     # hashed_password and verification_token are intentionally absent

@@ -30,4 +30,8 @@ class User(Base, TimestampMixin):
 
     goals: Mapped[list] = mapped_column(ARRAY(String(50)), server_default="{}", nullable=False)
 
+    display_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    avatar_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    timezone: Mapped[str | None] = mapped_column(String(64), nullable=True, server_default="Asia/Ho_Chi_Minh")
+
     assessments = relationship("Assessment", back_populates="user", order_by="Assessment.created_at")
