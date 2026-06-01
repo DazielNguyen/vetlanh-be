@@ -7,6 +7,12 @@ Why each fixture exists:
   clean_db     — deletes test rows before each test to prevent state leaking between tests
 """
 
+import os
+
+# Set required env vars before any app module is imported so Settings() doesn't fail.
+# These are placeholders — no real API calls are made in unit tests (everything is mocked).
+os.environ.setdefault("ANTHROPIC_API_KEY", "test-placeholder-key")
+
 import pytest
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import text

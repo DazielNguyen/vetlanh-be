@@ -53,9 +53,17 @@ async def send_message(
     """Send a message and receive the AI response as an SSE stream.
 
     Response format:
-      data: {"type": "chunk", "content": "..."}\n\n  — one per token
-      data: {"type": "done", "message_id": 42}\n\n   — stream end
-      data: {"type": "error", "detail": "..."}\n\n   — on failure
+      data: {"type": "chunk", "content": "..."}\n\n
+        — one event per token during streaming
+
+      data: {"type": "done", "message_id": 42, "exercise_card": {...}|null,
+             "sentiment": "positive"|"neutral"|"negative",
+             "suggest_checkin": false}\n\n
+        — stream end; exercise_card is non-null when AI suggested a breathing exercise;
+          suggest_checkin is true after 5+ consecutive negative messages
+
+      data: {"type": "error", "detail": "..."}\n\n
+        — on failure (message not persisted)
     """
     return StreamingResponse(
         stream_chat(db, conversation_id, current_user.id, payload.content),

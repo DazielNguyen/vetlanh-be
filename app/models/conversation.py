@@ -27,5 +27,7 @@ class Message(Base, TimestampMixin):
     # "user" | "assistant"
     role: Mapped[str] = mapped_column(String(20), nullable=False)
     content: Mapped[str] = mapped_column(Text, nullable=False)
+    # "positive" | "neutral" | "negative" — only set for user messages
+    sentiment: Mapped[str | None] = mapped_column(String(10), nullable=True)
 
     conversation = relationship("Conversation", back_populates="messages")
