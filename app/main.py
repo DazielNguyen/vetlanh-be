@@ -1,13 +1,26 @@
+import asyncio
 from contextlib import asynccontextmanager
+from pathlib import Path
 
+from alembic import command
+from alembic.config import Config
 from fastapi import FastAPI
 
 from app.api.v1 import router as v1_router
 from app.core.database import engine
 
 
+def _run_migrations() -> None:
+    # Runs synchronously in a thread — Alembic uses psycopg2, not asyncpg.
+    # Absolute path so this works regardless of cwd (dev, Docker, systemd, etc.)
+    alembic_ini = Path(__file__).parent.parent / "alembic.ini"
+    alembic_cfg = Config(str(alembic_ini))
+    command.upgrade(alembic_cfg, "head")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    await asyncio.to_thread(_run_migrations)
     yield
     # dispose() drains the pool and closes all connections.
     # Skipping this causes "Event loop closed" / "unclosed connection" warnings.
