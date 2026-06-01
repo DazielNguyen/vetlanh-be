@@ -1,4 +1,5 @@
 from datetime import date
+from typing import Literal
 
 from fastapi import APIRouter, Depends, Query, status
 from fastapi.encoders import jsonable_encoder
@@ -7,8 +8,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_current_user, get_db
 from app.models.user import User
-from app.schemas.mood import MoodEntryCreate, MoodEntryResponse
-from app.services.mood import create_or_update_entry, list_entries
+from app.schemas.mood import MoodEntryCreate, MoodEntryResponse, MoodTrendResponse
+from app.services.mood import create_or_update_entry, get_trend, list_entries
 
 router = APIRouter(prefix="/mood", tags=["mood"])
 
@@ -45,3 +46,16 @@ async def get_entries(
 ):
     """List mood entries, optionally filtered by date range (default: last 90 days)."""
     return await list_entries(db, current_user.id, start, end, limit, offset)
+
+
+@router.get("/trend", response_model=MoodTrendResponse)
+async def get_mood_trend(
+    period: Literal["week", "month"] = Query(default="week"),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Return mood trend data for the last 7 days (week) or 30 days (month).
+
+    Includes a slot for every day in the window; days without a check-in have mood=null.
+    """
+    return await get_trend(db, current_user.id, period)

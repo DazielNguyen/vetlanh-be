@@ -1,11 +1,12 @@
 from datetime import date, datetime, timedelta, timezone
+from typing import Literal
 
 from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.mood import MoodEntry
-from app.schemas.mood import MoodEntryCreate
+from app.schemas.mood import MoodEntryCreate, MoodTrendEntry, MoodTrendResponse
 
 _EDIT_WINDOW_HOURS = 1
 # 1-day buffer so UTC+N clients can submit end-of-day entries without hitting a future-date error
@@ -78,13 +79,58 @@ async def list_entries(
     offset: int = 0,
 ) -> list[MoodEntry]:
     query = select(MoodEntry).where(MoodEntry.user_id == user_id)
-    if start:
+    if start is not None:
         query = query.where(MoodEntry.date >= start)
-    if end:
+    if end is not None:
         query = query.where(MoodEntry.date <= end)
     query = query.order_by(MoodEntry.date.desc()).limit(limit).offset(offset)
     result = await db.execute(query)
     return list(result.scalars().all())
+
+
+async def get_trend(
+    db: AsyncSession, user_id: int, period: Literal["week", "month"]
+) -> MoodTrendResponse:
+    today = datetime.now(tz=timezone.utc).date()
+    days = 7 if period == "week" else 30
+    start = today - timedelta(days=days - 1)
+
+    result = await db.execute(
+        select(MoodEntry)
+        .where(MoodEntry.user_id == user_id, MoodEntry.date >= start, MoodEntry.date <= today)
+        .order_by(MoodEntry.date.asc())
+    )
+    db_entries: list[MoodEntry] = list(result.scalars().all())
+    by_date = {e.date: e for e in db_entries}
+
+    slots: list[MoodTrendEntry] = []
+    for i in range(days):
+        d = start + timedelta(days=i)
+        entry = by_date.get(d)
+        slots.append(
+            MoodTrendEntry(
+                date=d,
+                mood=entry.mood if entry else None,
+                energy=entry.energy if entry else None,
+                factors=entry.factors if entry else [],
+                note=entry.note if entry else None,
+            )
+        )
+
+    filled = [s for s in slots if s.mood is not None]
+    best_day = min(filled, key=lambda s: (-s.mood, s.date)).date if filled else None  # type: ignore[arg-type]
+    worst_day = min(filled, key=lambda s: (s.mood, s.date)).date if filled else None  # type: ignore[arg-type]
+    average_mood = round(sum(s.mood for s in filled) / len(filled), 2) if filled else None  # type: ignore[arg-type]
+
+    return MoodTrendResponse(
+        period=period,
+        start=start,
+        end=today,
+        entries=slots,
+        best_day=best_day,
+        worst_day=worst_day,
+        average_mood=average_mood,
+    )
 
 
 async def update_daily_mood(db: AsyncSession, user_id: int, sentiment: str) -> None:

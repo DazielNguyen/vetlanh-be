@@ -42,5 +42,13 @@ class PHQ9Result(BaseModel):
     questions: list[str]
     submitted_at: datetime
     suggested_goals: list[str] = []
+    score_delta: int | None = None  # current - previous; None for first-ever assessment
 
     model_config = {"from_attributes": True}
+
+
+class PHQ9ReminderResponse(BaseModel):
+    due: bool
+    days_since_last: int | None  # None if no assessment exists yet
+    next_due_in_days: int  # 0 means due now
+    last_submitted_at: datetime | None

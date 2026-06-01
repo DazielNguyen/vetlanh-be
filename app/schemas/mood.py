@@ -25,3 +25,23 @@ class MoodEntryResponse(BaseModel):
     updated_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+class MoodTrendEntry(BaseModel):
+    """One slot in the trend window. mood=None means no check-in that day."""
+
+    date: date
+    mood: int | None
+    energy: Literal["low", "medium", "high"] | None
+    factors: list[str]
+    note: str | None
+
+
+class MoodTrendResponse(BaseModel):
+    period: Literal["week", "month"]
+    start: date
+    end: date
+    entries: list[MoodTrendEntry]
+    best_day: date | None
+    worst_day: date | None
+    average_mood: float | None
