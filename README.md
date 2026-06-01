@@ -41,5 +41,10 @@ uvicorn app.main:app --reload
 - `POST /api/v1/auth/register`   — register a new user
 - `POST /api/v1/auth/login`      — login, returns JWT token
 - `GET  /api/v1/users/me`        — get current user (requires Bearer token)
+- `POST /api/v1/journal`         — create journal entry (requires Bearer token)
+- `GET  /api/v1/journal`         — list journal entries, supports ?q= keyword search (requires Bearer token)
+- `GET  /api/v1/journal/{id}`    — get single journal entry (requires Bearer token)
+- `PATCH /api/v1/journal/{id}`   — update journal entry (requires Bearer token)
+- `DELETE /api/v1/journal/{id}`  — delete journal entry (requires Bearer token)
 
 Interactive docs: http://localhost:8000/docs
