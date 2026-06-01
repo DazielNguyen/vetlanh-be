@@ -1,0 +1,47 @@
+from datetime import date
+
+from fastapi import APIRouter, Depends, Query, status
+from fastapi.encoders import jsonable_encoder
+from fastapi.responses import JSONResponse
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.deps import get_current_user, get_db
+from app.models.user import User
+from app.schemas.mood import MoodEntryCreate, MoodEntryResponse
+from app.services.mood import create_or_update_entry, list_entries
+
+router = APIRouter(prefix="/mood", tags=["mood"])
+
+
+@router.post("/entries", response_model=MoodEntryResponse)
+async def checkin(
+    payload: MoodEntryCreate,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Create or update a mood check-in for a given date (today or past dates accepted).
+
+    - First entry for that date → 201 Created
+    - Within 1 hour of creation → 200 OK (update allowed)
+    - After 1 hour → 409 Conflict
+    """
+    entry, created = await create_or_update_entry(db, current_user.id, payload)
+    # db.commit() is handled by get_db dependency — do not call it here
+    status_code = status.HTTP_201_CREATED if created else status.HTTP_200_OK
+    return JSONResponse(
+        status_code=status_code,
+        content=jsonable_encoder(MoodEntryResponse.model_validate(entry)),
+    )
+
+
+@router.get("/entries", response_model=list[MoodEntryResponse])
+async def get_entries(
+    start: date | None = None,
+    end: date | None = None,
+    limit: int = Query(default=90, ge=1, le=365),
+    offset: int = Query(default=0, ge=0),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """List mood entries, optionally filtered by date range (default: last 90 days)."""
+    return await list_entries(db, current_user.id, start, end, limit, offset)

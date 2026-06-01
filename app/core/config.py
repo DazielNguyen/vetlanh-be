@@ -16,8 +16,10 @@ class Settings(BaseSettings):
     # Base URL used in email links (set to frontend URL in prod)
     APP_BASE_URL: str = "http://localhost:8000"
 
-    # Anthropic — required for AI chat (Epic E2); no default so startup fails loudly when missing
-    ANTHROPIC_API_KEY: str
+    # Amazon Bedrock — required for AI chat; no default so startup fails loudly when missing
+    AWS_ACCESS_KEY_ID: str
+    AWS_SECRET_ACCESS_KEY: str
+    AWS_REGION: str = "us-east-1"
 
     # Google OAuth2 — required only when Google login is enabled
     GOOGLE_CLIENT_ID: str = ""

@@ -11,7 +11,8 @@ import os
 
 # Set required env vars before any app module is imported so Settings() doesn't fail.
 # These are placeholders — no real API calls are made in unit tests (everything is mocked).
-os.environ.setdefault("ANTHROPIC_API_KEY", "test-placeholder-key")
+os.environ.setdefault("AWS_ACCESS_KEY_ID", "test-key")
+os.environ.setdefault("AWS_SECRET_ACCESS_KEY", "test-secret")
 
 import pytest
 from httpx import ASGITransport, AsyncClient

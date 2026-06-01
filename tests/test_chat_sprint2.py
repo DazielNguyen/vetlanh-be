@@ -332,59 +332,51 @@ class TestUpdateDailyMood:
 
 
 # ---------------------------------------------------------------------------
-# _analyze_sentiment — mocked Anthropic call
+# _analyze_sentiment — mocked Bedrock Converse call
 # ---------------------------------------------------------------------------
 
 
 class TestAnalyzeSentiment:
-    """Tests for _analyze_sentiment with mocked Anthropic API."""
+    """Tests for _analyze_sentiment with mocked Bedrock Converse API."""
 
-    def _mock_anthropic_response(self, text: str):
-        """Build a minimal mock that mimics anthropic.types.Message."""
-        content_block = MagicMock()
-        content_block.text = text
-        response = MagicMock()
-        response.content = [content_block]
-        return response
+    def _mock_session(self, text: str):
+        """Return a mock aioboto3 session whose converse() returns the given text."""
+        response = {"output": {"message": {"content": [{"text": text}]}}}
+        mock_client = AsyncMock()
+        mock_client.converse = AsyncMock(return_value=response)
+        mock_ctx = MagicMock()
+        mock_ctx.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_ctx.__aexit__ = AsyncMock(return_value=False)
+        mock_session = MagicMock()
+        mock_session.client = MagicMock(return_value=mock_ctx)
+        return mock_session
 
     async def test_returns_positive(self):
         from app.services.chat import _analyze_sentiment
 
-        with patch("app.services.chat._anthropic") as mock_client:
-            mock_client.messages.create = AsyncMock(
-                return_value=self._mock_anthropic_response("positive")
-            )
+        with patch("app.services.chat._session", self._mock_session("positive")):
             result = await _analyze_sentiment("Hôm nay tôi rất vui!")
         assert result == "positive"
 
     async def test_returns_negative(self):
         from app.services.chat import _analyze_sentiment
 
-        with patch("app.services.chat._anthropic") as mock_client:
-            mock_client.messages.create = AsyncMock(
-                return_value=self._mock_anthropic_response("negative")
-            )
+        with patch("app.services.chat._session", self._mock_session("negative")):
             result = await _analyze_sentiment("Tôi cảm thấy rất buồn.")
         assert result == "negative"
 
     async def test_returns_neutral(self):
         from app.services.chat import _analyze_sentiment
 
-        with patch("app.services.chat._anthropic") as mock_client:
-            mock_client.messages.create = AsyncMock(
-                return_value=self._mock_anthropic_response("neutral")
-            )
+        with patch("app.services.chat._session", self._mock_session("neutral")):
             result = await _analyze_sentiment("Hôm nay trời bình thường.")
         assert result == "neutral"
 
     async def test_fallback_to_neutral_on_unexpected_value(self):
-        """When Anthropic returns an unrecognised word, fall back to 'neutral'."""
+        """When Bedrock returns an unrecognised word, fall back to 'neutral'."""
         from app.services.chat import _analyze_sentiment
 
-        with patch("app.services.chat._anthropic") as mock_client:
-            mock_client.messages.create = AsyncMock(
-                return_value=self._mock_anthropic_response("unsure")
-            )
+        with patch("app.services.chat._session", self._mock_session("unsure")):
             result = await _analyze_sentiment("Some text.")
         assert result == "neutral"
 
@@ -392,9 +384,6 @@ class TestAnalyzeSentiment:
         """Response with surrounding spaces/newlines is still recognised."""
         from app.services.chat import _analyze_sentiment
 
-        with patch("app.services.chat._anthropic") as mock_client:
-            mock_client.messages.create = AsyncMock(
-                return_value=self._mock_anthropic_response("  Positive  ")
-            )
+        with patch("app.services.chat._session", self._mock_session("  Positive  ")):
             result = await _analyze_sentiment("Tuyệt vời quá!")
         assert result == "positive"
