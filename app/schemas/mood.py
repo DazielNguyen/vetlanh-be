@@ -45,3 +45,19 @@ class MoodTrendResponse(BaseModel):
     best_day: date | None
     worst_day: date | None
     average_mood: float | None
+
+
+InsightType = Literal["overall_average", "day_of_week", "factor_correlation"]
+
+
+class InsightItem(BaseModel):
+    type: InsightType
+    text: str
+    # delta=None for overall_average (no comparison baseline); float for pattern-based insights
+    delta: float | None = None
+
+
+class InsightsResponse(BaseModel):
+    total_entries: int
+    has_enough_data: bool
+    insights: list[InsightItem]

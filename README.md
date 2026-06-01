@@ -51,5 +51,9 @@ uvicorn app.main:app --reload
 - `DELETE /api/v1/chat/conversations/{id}` — delete conversation (requires Bearer token)
 - `GET  /api/v1/chat/conversations/{id}/messages` — list messages in conversation (requires Bearer token)
 - `POST /api/v1/chat/conversations/{id}/messages` — send message and stream AI response (requires Bearer token)
+- `POST /api/v1/mood/entries`      — create or update mood check-in (requires Bearer token)
+- `GET  /api/v1/mood/entries`      — list mood entries, optional date range filter (requires Bearer token)
+- `GET  /api/v1/mood/insights`     — get mood insights (requires at least 7 check-ins; requires Bearer token)
+- `GET  /api/v1/mood/trend`        — get mood trend data for week or month (requires Bearer token)
 
 Interactive docs: http://localhost:8000/docs

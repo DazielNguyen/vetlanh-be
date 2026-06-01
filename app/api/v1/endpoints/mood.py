@@ -8,7 +8,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_current_user, get_db
 from app.models.user import User
-from app.schemas.mood import MoodEntryCreate, MoodEntryResponse, MoodTrendResponse
+from app.schemas.mood import InsightsResponse, MoodEntryCreate, MoodEntryResponse, MoodTrendResponse
+from app.services.insights import get_insights
 from app.services.mood import create_or_update_entry, get_trend, list_entries
 
 router = APIRouter(prefix="/mood", tags=["mood"])
@@ -46,6 +47,18 @@ async def get_entries(
 ):
     """List mood entries, optionally filtered by date range (default: last 90 days)."""
     return await list_entries(db, current_user.id, start, end, limit, offset)
+
+
+@router.get("/insights", response_model=InsightsResponse)
+async def get_mood_insights(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Return personalised mood insights from historical check-in data.
+
+    Requires at least 7 check-ins. Returns has_enough_data=false with empty insights list otherwise.
+    """
+    return await get_insights(db, current_user.id)
 
 
 @router.get("/trend", response_model=MoodTrendResponse)
