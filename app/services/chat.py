@@ -4,12 +4,12 @@ from collections.abc import AsyncGenerator
 
 import aioboto3
 from fastapi import HTTPException
-from sqlalchemy import select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.models.conversation import Conversation, Message
-from app.schemas.chat import ExerciseCard, ExerciseStep
+from app.schemas.chat import ConversationListItem, ExerciseCard, ExerciseStep
 from app.services.mood import update_daily_mood
 
 _session = aioboto3.Session(
@@ -143,13 +143,84 @@ async def create_conversation(db: AsyncSession, user_id: int, title: str | None 
     return conv
 
 
-async def list_conversations(db: AsyncSession, user_id: int) -> list[Conversation]:
-    result = await db.execute(
-        select(Conversation)
-        .where(Conversation.user_id == user_id)
-        .order_by(Conversation.created_at.desc())
+def _escape_like(q: str) -> str:
+    return q.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
+async def list_conversations(
+    db: AsyncSession, user_id: int, q: str | None = None
+) -> list[ConversationListItem]:
+    msg_count = (
+        select(func.count(Message.id))
+        .where(Message.conversation_id == Conversation.id)
+        .correlate(Conversation)
+        .scalar_subquery()
     )
-    return list(result.scalars().all())
+    last_msg_at = (
+        select(func.max(Message.created_at))
+        .where(Message.conversation_id == Conversation.id)
+        .correlate(Conversation)
+        .scalar_subquery()
+    )
+    last_msg_preview = (
+        select(func.substr(Message.content, 1, 100))
+        .where(Message.conversation_id == Conversation.id)
+        .order_by(Message.created_at.desc(), Message.id.desc())
+        .limit(1)
+        .correlate(Conversation)
+        .scalar_subquery()
+    )
+    query = (
+        select(
+            Conversation.id,
+            Conversation.title,
+            Conversation.created_at,
+            Conversation.updated_at,
+            msg_count.label("message_count"),
+            last_msg_at.label("last_message_at"),
+            last_msg_preview.label("last_message_preview"),
+        )
+        .where(Conversation.user_id == user_id)
+        .order_by(func.coalesce(last_msg_at, Conversation.created_at).desc())
+    )
+    if q:
+        pattern = f"%{_escape_like(q)}%"
+        msg_match = (
+            select(Message.id)
+            .where(
+                Message.conversation_id == Conversation.id,
+                Message.content.ilike(pattern, escape="\\"),
+            )
+            .correlate(Conversation)
+            .exists()
+        )
+        query = query.where(
+            or_(
+                Conversation.title.ilike(pattern, escape="\\"),
+                msg_match,
+            )
+        )
+    result = await db.execute(query)
+    return [ConversationListItem(**row._mapping) for row in result.all()]
+
+
+async def _get_conversation(db: AsyncSession, conversation_id: int, user_id: int) -> Conversation | None:
+    result = await db.execute(
+        select(Conversation).where(
+            Conversation.id == conversation_id,
+            Conversation.user_id == user_id,
+        )
+    )
+    return result.scalar_one_or_none()
+
+
+async def delete_conversation(db: AsyncSession, conversation_id: int, user_id: int) -> bool:
+    conv = await _get_conversation(db, conversation_id, user_id)
+    if conv is None:
+        return False
+    await db.delete(conv)
+    await db.flush()
+    return True
 
 
 async def get_conversation_or_403(db: AsyncSession, conversation_id: int, user_id: int) -> Conversation:

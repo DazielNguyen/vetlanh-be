@@ -1,18 +1,21 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_current_user, get_db
 from app.models.user import User
-from app.schemas.chat import ConversationCreate, ConversationResponse, MessageResponse, SendMessageRequest
+from app.schemas.chat import ConversationCreate, ConversationListItem, ConversationResponse, MessageResponse, SendMessageRequest
 from app.services.chat import (
     create_conversation,
+    delete_conversation,
     get_messages,
     list_conversations,
     stream_chat,
 )
 
 router = APIRouter(prefix="/chat", tags=["chat"])
+
+_NOT_FOUND = "Conversation not found"
 
 
 @router.post("/conversations", response_model=ConversationResponse, status_code=201)
@@ -26,12 +29,23 @@ async def start_conversation(
     return conv
 
 
-@router.get("/conversations", response_model=list[ConversationResponse])
+@router.get("/conversations", response_model=list[ConversationListItem])
 async def get_conversations(
+    q: str | None = Query(default=None, min_length=1, max_length=200),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    return await list_conversations(db, current_user.id)
+    return await list_conversations(db, current_user.id, q=q)
+
+
+@router.delete("/conversations/{conversation_id}", status_code=204, response_model=None)
+async def delete_conversation_endpoint(
+    conversation_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    if not await delete_conversation(db, conversation_id, current_user.id):
+        raise HTTPException(status_code=404, detail=_NOT_FOUND)
 
 
 @router.get("/conversations/{conversation_id}/messages", response_model=list[MessageResponse])

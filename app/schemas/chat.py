@@ -17,6 +17,18 @@ class ConversationResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class ConversationListItem(BaseModel):
+    id: int
+    title: str | None
+    message_count: int
+    last_message_preview: str | None
+    last_message_at: datetime | None
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
 class MessageResponse(BaseModel):
     id: int
     role: Literal["user", "assistant"]

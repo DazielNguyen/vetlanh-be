@@ -46,5 +46,10 @@ uvicorn app.main:app --reload
 - `GET  /api/v1/journal/{id}`    — get single journal entry (requires Bearer token)
 - `PATCH /api/v1/journal/{id}`   — update journal entry (requires Bearer token)
 - `DELETE /api/v1/journal/{id}`  — delete journal entry (requires Bearer token)
+- `POST /api/v1/chat/conversations`       — create conversation (requires Bearer token)
+- `GET  /api/v1/chat/conversations`       — list conversations, supports ?q= keyword search (requires Bearer token)
+- `DELETE /api/v1/chat/conversations/{id}` — delete conversation (requires Bearer token)
+- `GET  /api/v1/chat/conversations/{id}/messages` — list messages in conversation (requires Bearer token)
+- `POST /api/v1/chat/conversations/{id}/messages` — send message and stream AI response (requires Bearer token)
 
 Interactive docs: http://localhost:8000/docs
