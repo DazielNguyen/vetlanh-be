@@ -40,3 +40,4 @@ class User(Base, TimestampMixin):
     journal_entries = relationship("JournalEntry", back_populates="user", order_by="JournalEntry.created_at")
     exercise_logs = relationship("UserExerciseLog", back_populates="user", order_by="UserExerciseLog.created_at")
     safety_plan = relationship("UserSafetyPlan", back_populates="user", uselist=False)
+    thought_records = relationship("ThoughtRecord", back_populates="user", order_by="ThoughtRecord.created_at")
