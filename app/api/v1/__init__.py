@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from app.api.v1.endpoints import assessments, auth, chat, crisis, dashboard, exercises, health, journal, mood, safety_plan, thought_records, users
+from app.api.v1.endpoints import assessments, auth, badges, chat, crisis, dashboard, exercises, health, journal, journal_prompts, mood, notifications, safety_plan, thought_records, users
 
 router = APIRouter()
 router.include_router(health.router, tags=["health"])
@@ -9,9 +9,13 @@ router.include_router(users.router, tags=["users"])
 router.include_router(assessments.router)
 router.include_router(chat.router)
 router.include_router(mood.router)
+# journal_prompts MUST be registered before journal to avoid /{entry_id} wildcard matching first
+router.include_router(journal_prompts.router)
 router.include_router(journal.router)
 router.include_router(exercises.router)
 router.include_router(crisis.router)
 router.include_router(safety_plan.router)
 router.include_router(thought_records.router)
 router.include_router(dashboard.router)
+router.include_router(badges.router)
+router.include_router(notifications.router)

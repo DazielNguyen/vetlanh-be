@@ -41,3 +41,5 @@ class User(Base, TimestampMixin):
     exercise_logs = relationship("UserExerciseLog", back_populates="user", order_by="UserExerciseLog.created_at")
     safety_plan = relationship("UserSafetyPlan", back_populates="user", uselist=False)
     thought_records = relationship("ThoughtRecord", back_populates="user", order_by="ThoughtRecord.created_at")
+    badge_notifications = relationship("UserBadgeNotification", back_populates="user")
+    notification_preference = relationship("NotificationPreference", back_populates="user", uselist=False)
