@@ -1,3 +1,4 @@
+import calendar
 from datetime import date, datetime, timedelta, timezone
 from typing import Literal
 
@@ -6,7 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.mood import MoodEntry
-from app.schemas.mood import MoodEntryCreate, MoodTrendEntry, MoodTrendResponse
+from app.schemas.mood import HeatmapDay, HeatmapResponse, MoodEntryCreate, MoodTrendEntry, MoodTrendResponse
 
 _EDIT_WINDOW_HOURS = 1
 # 1-day buffer so UTC+N clients can submit end-of-day entries without hitting a future-date error
@@ -131,6 +132,22 @@ async def get_trend(
         worst_day=worst_day,
         average_mood=average_mood,
     )
+
+
+async def get_heatmap(db: AsyncSession, user_id: int, year: int, month: int) -> HeatmapResponse:
+    """Return sparse list of days that have a mood entry for the given year/month."""
+    _, last_day = calendar.monthrange(year, month)
+    start = date(year, month, 1)
+    end = date(year, month, last_day)
+
+    result = await db.execute(
+        select(MoodEntry.date, MoodEntry.mood)
+        .where(MoodEntry.user_id == user_id, MoodEntry.date >= start, MoodEntry.date <= end)
+        .order_by(MoodEntry.date)
+    )
+    rows = result.all()
+    days = [HeatmapDay(date=row.date, mood_score=row.mood) for row in rows]
+    return HeatmapResponse(year=year, month=month, days=days)
 
 
 async def update_daily_mood(db: AsyncSession, user_id: int, sentiment: str) -> None:

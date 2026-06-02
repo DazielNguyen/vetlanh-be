@@ -61,3 +61,14 @@ class InsightsResponse(BaseModel):
     total_entries: int
     has_enough_data: bool
     insights: list[InsightItem]
+
+
+class HeatmapDay(BaseModel):
+    date: date
+    mood_score: int = Field(..., ge=1, le=5)
+
+
+class HeatmapResponse(BaseModel):
+    year: int
+    month: int
+    days: list[HeatmapDay]
