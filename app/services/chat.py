@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
 from app.models.conversation import Conversation, Message
 from app.schemas.chat import ConversationListItem, ExerciseCard, ExerciseStep
+from app.services.crisis import CrisisLevel, detect_crisis_level
 from app.services.mood import update_daily_mood
 
 _session = aioboto3.Session(
@@ -256,14 +257,24 @@ async def stream_chat(
       exercise_card   — breathing exercise card if AI suggested one, else null
       sentiment       — user message sentiment: positive | neutral | negative
       suggest_checkin — true when user sent 5+ consecutive negative messages
+      crisis_level    — 0=none, 1=anxiety, 2=serious, 3=crisis (level 3 skips AI entirely)
     """
     conv = await get_conversation_or_403(db, conversation_id, user_id)
+
+    # Detect crisis BEFORE any AI call — level 3 skips Bedrock entirely
+    # so the redirect signal reaches the client without an AI response appearing first.
+    crisis_level = detect_crisis_level(user_content)
 
     # Persist user message immediately so history is consistent on reconnect
     user_msg = Message(conversation_id=conversation_id, role="user", content=user_content)
     db.add(user_msg)
     await db.flush()
     await db.refresh(user_msg)
+
+    if crisis_level == CrisisLevel.LEVEL_3_CRISIS:
+        await db.commit()
+        yield f"data: {json.dumps({'type': 'done', 'message_id': user_msg.id, 'exercise_card': None, 'sentiment': None, 'suggest_checkin': False, 'crisis_level': int(crisis_level)})}\n\n"
+        return
 
     # Build message history for Bedrock (last N messages including the one just saved)
     history_result = await db.execute(
@@ -331,5 +342,6 @@ async def stream_chat(
         "exercise_card": exercise_card.model_dump() if exercise_card else None,
         "sentiment": sentiment,
         "suggest_checkin": suggest_checkin,
+        "crisis_level": int(crisis_level),
     }
     yield f"data: {json.dumps(done_payload)}\n\n"
