@@ -95,7 +95,7 @@ from app.services.exercise import (
 TEST_EMAIL_DOMAIN = "test.vetlanh"
 
 # Total number of exercises in the static catalogue (update if catalogue grows)
-_TOTAL_EXERCISES = 9
+_TOTAL_EXERCISES = 10
 
 
 # ---------------------------------------------------------------------------
@@ -859,3 +859,119 @@ class TestExerciseHistoryAPI:
         entry = resp.json()[0]
         for field in ("id", "exercise_slug", "duration_seconds", "created_at"):
             assert field in entry
+
+
+# ===========================================================================
+# US-021: PMR TESTS
+# ===========================================================================
+
+
+class TestPMRServiceUnit:
+    """Unit tests for the PMR exercise in the static catalogue."""
+
+    def test_pmr_exists_in_catalogue(self):
+        result = get_exercise("pmr-7-groups")
+        assert result is not None
+
+    def test_pmr_category_is_relaxation(self):
+        ex = get_exercise("pmr-7-groups")
+        assert ex.category == ExerciseCategory.relaxation
+
+    def test_pmr_has_exactly_7_steps(self):
+        ex = get_exercise("pmr-7-groups")
+        assert ex.steps is not None
+        assert len(ex.steps) == 7
+
+    def test_pmr_steps_have_tense_and_release_seconds(self):
+        ex = get_exercise("pmr-7-groups")
+        for step in ex.steps:
+            assert step.tense_seconds is not None
+            assert step.release_seconds is not None
+
+    def test_pmr_tense_seconds_is_7(self):
+        ex = get_exercise("pmr-7-groups")
+        for step in ex.steps:
+            assert step.tense_seconds == 7
+
+    def test_pmr_release_seconds_is_30(self):
+        ex = get_exercise("pmr-7-groups")
+        for step in ex.steps:
+            assert step.release_seconds == 30
+
+    def test_pmr_mood_tags_include_anxious(self):
+        ex = get_exercise("pmr-7-groups")
+        assert MoodFilter.anxious in ex.mood_tags
+
+    def test_pmr_mood_tags_include_angry(self):
+        ex = get_exercise("pmr-7-groups")
+        assert MoodFilter.angry in ex.mood_tags
+
+    def test_pmr_steps_have_vietnamese_instruction(self):
+        ex = get_exercise("pmr-7-groups")
+        for step in ex.steps:
+            assert step.instruction and len(step.instruction) > 0
+
+    def test_pmr_steps_are_ordered_1_to_7(self):
+        ex = get_exercise("pmr-7-groups")
+        orders = [s.order for s in ex.steps]
+        assert orders == list(range(1, 8))
+
+    def test_existing_exercises_have_null_tense_seconds(self):
+        """Non-PMR exercises must not break — tense_seconds stays None."""
+        ex = get_exercise("box-breathing")
+        assert ex.steps is None  # breathing uses phases, not steps
+        grounding = get_exercise("grounding-54321")
+        for step in grounding.steps:
+            assert step.tense_seconds is None
+            assert step.release_seconds is None
+
+    def test_list_exercises_by_relaxation_category_returns_pmr(self):
+        result = list_exercises(category=ExerciseCategory.relaxation)
+        slugs = [e.slug for e in result]
+        assert "pmr-7-groups" in slugs
+
+    def test_list_exercises_by_mood_anxious_includes_pmr(self):
+        result = list_exercises(mood=MoodFilter.anxious)
+        slugs = [e.slug for e in result]
+        assert "pmr-7-groups" in slugs
+
+
+class TestPMRAPI:
+    """API integration tests for PMR exercise."""
+
+    async def test_list_exercises_includes_pmr(self, client: AsyncClient):
+        token = await _register_and_login(client, "pmr_list@test.vetlanh")
+        resp = await client.get("/api/v1/exercises", headers=_auth(token))
+        slugs = [ex["slug"] for ex in resp.json()]
+        assert "pmr-7-groups" in slugs
+
+    async def test_pmr_category_is_relaxation_in_api(self, client: AsyncClient):
+        token = await _register_and_login(client, "pmr_cat@test.vetlanh")
+        resp = await client.get("/api/v1/exercises/pmr-7-groups", headers=_auth(token))
+        assert resp.status_code == 200
+        assert resp.json()["category"] == "relaxation"
+
+    async def test_pmr_has_7_steps_in_api(self, client: AsyncClient):
+        token = await _register_and_login(client, "pmr_steps@test.vetlanh")
+        resp = await client.get("/api/v1/exercises/pmr-7-groups", headers=_auth(token))
+        assert len(resp.json()["steps"]) == 7
+
+    async def test_pmr_step_has_tense_and_release_seconds(self, client: AsyncClient):
+        token = await _register_and_login(client, "pmr_stepfields@test.vetlanh")
+        resp = await client.get("/api/v1/exercises/pmr-7-groups", headers=_auth(token))
+        step = resp.json()["steps"][0]
+        assert step["tense_seconds"] == 7
+        assert step["release_seconds"] == 30
+
+    async def test_filter_by_mood_anxious_includes_pmr(self, client: AsyncClient):
+        token = await _register_and_login(client, "pmr_mood_anxious@test.vetlanh")
+        resp = await client.get("/api/v1/exercises?mood=anxious", headers=_auth(token))
+        slugs = [ex["slug"] for ex in resp.json()]
+        assert "pmr-7-groups" in slugs
+
+    async def test_filter_by_category_relaxation_returns_pmr(self, client: AsyncClient):
+        token = await _register_and_login(client, "pmr_cat_filter@test.vetlanh")
+        resp = await client.get("/api/v1/exercises?category=relaxation", headers=_auth(token))
+        assert resp.status_code == 200
+        slugs = [ex["slug"] for ex in resp.json()]
+        assert "pmr-7-groups" in slugs

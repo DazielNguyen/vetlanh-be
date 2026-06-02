@@ -146,6 +146,59 @@ _EXERCISES: list[ExerciseResponse] = [
         audio_url="/static/audio/anxiety-relief.mp3",
         audio_options_minutes=[5, 10, 15],
     ),
+    # --- US-021: Progressive Muscle Relaxation ---
+    ExerciseResponse(
+        slug="pmr-7-groups",
+        title="Thư Giãn Cơ Tuần Tiến (PMR)",
+        description="Căng và thả lỏng từng nhóm cơ để giải phóng căng thẳng tích tụ trong cơ thể.",
+        category=ExerciseCategory.relaxation,
+        duration_minutes=14,
+        mood_tags=[MoodFilter.anxious, MoodFilter.angry],
+        steps=[
+            ExerciseStep(
+                order=1,
+                instruction="Nắm chặt hai nắm tay, giữ trong 7 giây rồi từ từ thả lỏng hoàn toàn.",
+                tense_seconds=7,
+                release_seconds=30,
+            ),
+            ExerciseStep(
+                order=2,
+                instruction="Gập hai cánh tay lên, căng cơ bắp tay trong 7 giây rồi thả xuống nhẹ nhàng.",
+                tense_seconds=7,
+                release_seconds=30,
+            ),
+            ExerciseStep(
+                order=3,
+                instruction="Nhún vai lên sát tai, căng vai và cổ trong 7 giây rồi thả xuống.",
+                tense_seconds=7,
+                release_seconds=30,
+            ),
+            ExerciseStep(
+                order=4,
+                instruction="Nhăn mặt lại — cau mày, nhắm mắt, mím môi — giữ 7 giây rồi thả lỏng.",
+                tense_seconds=7,
+                release_seconds=30,
+            ),
+            ExerciseStep(
+                order=5,
+                instruction="Hít sâu và căng cơ bụng trong 7 giây, như thể bạn đang chuẩn bị chịu đòn, rồi thở ra và thả lỏng.",
+                tense_seconds=7,
+                release_seconds=30,
+            ),
+            ExerciseStep(
+                order=6,
+                instruction="Ép chặt hai đùi vào nhau và căng cơ đùi trong 7 giây rồi thả lỏng.",
+                tense_seconds=7,
+                release_seconds=30,
+            ),
+            ExerciseStep(
+                order=7,
+                instruction="Duỗi thẳng bàn chân và uốn cong các ngón chân xuống, giữ 7 giây rồi thả lỏng hoàn toàn.",
+                tense_seconds=7,
+                release_seconds=30,
+            ),
+        ],
+    ),
 ]
 
 # Fast lookups — built once at import time

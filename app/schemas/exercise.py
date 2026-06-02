@@ -9,6 +9,7 @@ class ExerciseCategory(str, Enum):
     grounding = "grounding"
     meditation = "meditation"
     cbt = "cbt"
+    relaxation = "relaxation"
 
 
 class MoodFilter(str, Enum):
@@ -28,6 +29,8 @@ class ExerciseStep(BaseModel):
     order: int
     instruction: str
     input_prompt: str | None = None  # for grounding — user types their answer
+    tense_seconds: int | None = None   # PMR only: how long to tense the muscle group
+    release_seconds: int | None = None  # PMR only: how long to hold the release
 
 
 class ExerciseResponse(BaseModel):
