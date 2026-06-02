@@ -13,6 +13,8 @@ import os
 # These are placeholders — no real API calls are made in unit tests (everything is mocked).
 os.environ.setdefault("AWS_ACCESS_KEY_ID", "test-key")
 os.environ.setdefault("AWS_SECRET_ACCESS_KEY", "test-secret")
+# Valid Fernet key for tests — does not need to match production key
+os.environ.setdefault("JOURNAL_ENCRYPTION_KEY", "_RcBQAY99s_WZg4RGlmiNqOCfKYXX-g0st5bsZLSl38=")
 
 import pytest
 from httpx import ASGITransport, AsyncClient

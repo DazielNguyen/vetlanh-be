@@ -562,8 +562,11 @@ class TestListJournalEntries:
         # Newest (second) should come before oldest (first)
         assert ids.index(id_second) < ids.index(id_first)
 
-    async def test_list_search_by_content_keyword(self, client: AsyncClient):
-        """?q=keyword returns only entries where content contains keyword."""
+    async def test_list_search_by_content_keyword_does_not_match(self, client: AsyncClient):
+        """Content is encrypted — ?q= on a content-only keyword returns no results.
+
+        Search operates on titles only after US-030 encryption was applied.
+        """
         token = await _register_and_login(client, "journal_list_qcontent@test.vetlanh")
         headers = _auth(token)
 
@@ -579,9 +582,8 @@ class TestListJournalEntries:
         )
 
         resp = await client.get("/api/v1/journal?q=hiking", headers=headers)
-        data = resp.json()
-        assert len(data) == 1
-        assert "hiking" in data[0]["content"]
+        # Encrypted content cannot be searched with ILIKE — expect empty result
+        assert resp.json() == []
 
     async def test_list_search_by_title_keyword(self, client: AsyncClient):
         """?q=keyword also matches against title."""

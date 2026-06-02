@@ -16,6 +16,9 @@ class Settings(BaseSettings):
     # Base URL used in email links (set to frontend URL in prod)
     APP_BASE_URL: str = "http://localhost:8000"
 
+    # Journal encryption — required; no default so startup fails loudly when missing
+    JOURNAL_ENCRYPTION_KEY: str
+
     # Amazon Bedrock — required for AI chat; no default so startup fails loudly when missing
     AWS_ACCESS_KEY_ID: str
     AWS_SECRET_ACCESS_KEY: str

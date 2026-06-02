@@ -1,4 +1,4 @@
-from sqlalchemy import or_, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.journal import JournalEntry
@@ -42,12 +42,9 @@ async def list_entries(
     )
     if q:
         pattern = f"%{_escape_like(q)}%"
-        query = query.where(
-            or_(
-                JournalEntry.title.ilike(pattern, escape="\\"),
-                JournalEntry.content.ilike(pattern, escape="\\"),
-            )
-        )
+        # content column is Fernet-encrypted — ILIKE on ciphertext never matches.
+        # Search is title-only until a searchable encrypted index is added.
+        query = query.where(JournalEntry.title.ilike(pattern, escape="\\"))
     query = query.limit(limit).offset(offset)
     result = await db.execute(query)
     return list(result.scalars().all())
