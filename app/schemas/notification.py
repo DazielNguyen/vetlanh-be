@@ -21,8 +21,10 @@ class NotificationPreferenceUpdate(BaseModel):
     enabled: bool | None = Field(default=None)
     quiet_start: str | None = Field(default=None)
     quiet_end: str | None = Field(default=None)
+    exercise_enabled: bool | None = Field(default=None)
+    exercise_reminder_time: str | None = Field(default=None)
 
-    @field_validator("reminder_time", "quiet_start", "quiet_end", mode="before")
+    @field_validator("reminder_time", "quiet_start", "quiet_end", "exercise_reminder_time", mode="before")
     @classmethod
     def validate_time_fields(cls, v: str | None) -> str | None:
         if v is None:
@@ -37,6 +39,8 @@ class NotificationPreferenceOut(BaseModel):
     enabled: bool
     quiet_start: str
     quiet_end: str
+    exercise_enabled: bool
+    exercise_reminder_time: str
 
 
 class ShouldNotifyResponse(BaseModel):

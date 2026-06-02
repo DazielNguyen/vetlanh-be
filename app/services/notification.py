@@ -1,10 +1,11 @@
 """Notification preference logic for US-031."""
 
-from datetime import date, datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.exercise import UserExerciseLog
 from app.models.mood import MoodEntry
 from app.models.notification_preference import NotificationPreference
 from app.schemas.notification import (
@@ -14,6 +15,10 @@ from app.schemas.notification import (
 )
 
 _VN_TZ = timezone(timedelta(hours=7))
+
+
+def _now_vn() -> datetime:
+    return datetime.now(tz=_VN_TZ)
 
 
 async def _get_or_create(db: AsyncSession, user_id: int) -> NotificationPreference:
@@ -67,7 +72,7 @@ async def should_notify(db: AsyncSession, user_id: int) -> ShouldNotifyResponse:
     if not pref.enabled:
         return ShouldNotifyResponse(should_notify=False, reason="notifications disabled")
 
-    now_vn = datetime.now(tz=_VN_TZ)
+    now_vn = _now_vn()
     current_minutes = now_vn.hour * 60 + now_vn.minute
 
     if _in_quiet_hours(current_minutes, pref.quiet_start, pref.quiet_end):
@@ -79,5 +84,37 @@ async def should_notify(db: AsyncSession, user_id: int) -> ShouldNotifyResponse:
     )
     if result.scalar_one_or_none() is not None:
         return ShouldNotifyResponse(should_notify=False, reason="already checked in today")
+
+    return ShouldNotifyResponse(should_notify=True, reason="ok")
+
+
+async def should_remind_exercise(db: AsyncSession, user_id: int) -> ShouldNotifyResponse:
+    pref = await _get_or_create(db, user_id)
+
+    if not pref.exercise_enabled:
+        return ShouldNotifyResponse(should_notify=False, reason="exercise notifications disabled")
+
+    now_vn = _now_vn()
+    current_minutes = now_vn.hour * 60 + now_vn.minute
+
+    if _in_quiet_hours(current_minutes, pref.quiet_start, pref.quiet_end):
+        return ShouldNotifyResponse(should_notify=False, reason="quiet hours")
+
+    if current_minutes < _time_str_to_minutes(pref.exercise_reminder_time):
+        return ShouldNotifyResponse(should_notify=False, reason="not yet reminder time")
+
+    today_vn = now_vn.date()
+    # Compare using date-level boundaries in VN timezone — avoids func.date() dialect differences
+    from datetime import datetime as _datetime
+    day_start = _datetime(today_vn.year, today_vn.month, today_vn.day, tzinfo=_VN_TZ)
+    result = await db.execute(
+        select(UserExerciseLog).where(
+            UserExerciseLog.user_id == user_id,
+            UserExerciseLog.created_at >= day_start,
+            UserExerciseLog.created_at < day_start + timedelta(days=1),
+        )
+    )
+    if result.scalar_one_or_none() is not None:
+        return ShouldNotifyResponse(should_notify=False, reason="already exercised today")
 
     return ShouldNotifyResponse(should_notify=True, reason="ok")

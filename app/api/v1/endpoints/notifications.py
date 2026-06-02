@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.deps import get_current_user, get_db
 from app.models.user import User
 from app.schemas.notification import NotificationPreferenceOut, NotificationPreferenceUpdate, ShouldNotifyResponse
-from app.services.notification import get_preference, should_notify, update_preference
+from app.services.notification import get_preference, should_notify, should_remind_exercise, update_preference
 
 router = APIRouter(prefix="/notifications", tags=["notifications"])
 
@@ -37,3 +37,12 @@ async def check_should_notify(
 ):
     """US-031: Mobile calls this to decide whether to show a check-in reminder right now."""
     return await should_notify(db, current_user.id)
+
+
+@router.get("/exercise-reminder", response_model=ShouldNotifyResponse)
+async def check_exercise_reminder(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """US-032: Mobile calls this to decide whether to show a daily exercise reminder."""
+    return await should_remind_exercise(db, current_user.id)

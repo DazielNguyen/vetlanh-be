@@ -20,5 +20,8 @@ class NotificationPreference(Base, TimestampMixin):
     # Quiet hours — no notifications sent between quiet_start and quiet_end (HH:MM)
     quiet_start: Mapped[str] = mapped_column(String(5), nullable=False, server_default="22:00")
     quiet_end: Mapped[str] = mapped_column(String(5), nullable=False, server_default="07:00")
+    # Exercise reminder (US-032)
+    exercise_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="true")
+    exercise_reminder_time: Mapped[str] = mapped_column(String(5), nullable=False, server_default="08:00")
 
     user = relationship("User", back_populates="notification_preference")
