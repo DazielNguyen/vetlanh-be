@@ -38,3 +38,4 @@ class User(Base, TimestampMixin):
     conversations = relationship("Conversation", back_populates="user", order_by="Conversation.created_at")
     mood_entries = relationship("MoodEntry", back_populates="user", order_by="MoodEntry.date")
     journal_entries = relationship("JournalEntry", back_populates="user", order_by="JournalEntry.created_at")
+    exercise_logs = relationship("UserExerciseLog", back_populates="user", order_by="UserExerciseLog.created_at")

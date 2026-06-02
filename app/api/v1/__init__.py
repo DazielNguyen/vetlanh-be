@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from app.api.v1.endpoints import assessments, auth, chat, health, journal, mood, users
+from app.api.v1.endpoints import assessments, auth, chat, exercises, health, journal, mood, users
 
 router = APIRouter()
 router.include_router(health.router, tags=["health"])
@@ -10,3 +10,4 @@ router.include_router(assessments.router)
 router.include_router(chat.router)
 router.include_router(mood.router)
 router.include_router(journal.router)
+router.include_router(exercises.router)
