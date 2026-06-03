@@ -2,8 +2,8 @@ import json
 import logging
 from collections.abc import AsyncGenerator
 
-import aioboto3
 from fastapi import HTTPException
+from groq import AsyncGroq
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -13,11 +13,7 @@ from app.schemas.chat import ConversationListItem, ExerciseCard, ExerciseStep
 from app.services.crisis import CrisisLevel, detect_crisis_level
 from app.services.mood import update_daily_mood
 
-_session = aioboto3.Session(
-    aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
-    aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
-    region_name=settings.AWS_REGION,
-)
+_client = AsyncGroq(api_key=settings.GROQ_API_KEY)
 
 logger = logging.getLogger(__name__)
 
@@ -61,8 +57,7 @@ _EXERCISE_TRIGGER_KEYWORDS = [
 ]
 
 # Llama 3.2 11B — no Anthropic approval needed; switch to Claude when AWS unlocks it
-# To switch back to Claude: "us.anthropic.claude-3-5-haiku-20241022-v1:0"
-_BEDROCK_MODEL = "us.meta.llama3-2-11b-instruct-v1:0"
+_GROQ_MODEL = "llama-3.3-70b-versatile"
 
 _BOX_BREATHING = ExerciseCard(
     id="box-breathing",
@@ -79,9 +74,9 @@ _BOX_BREATHING = ExerciseCard(
 
 
 def _build_converse_messages(history: list[Message]) -> list[dict]:
-    """Convert DB messages to Bedrock Converse API format."""
+    """Convert DB messages to Groq chat completions format."""
     return [
-        {"role": m.role, "content": [{"text": m.content}]}
+        {"role": m.role, "content": m.content}
         for m in history
     ]
 
@@ -95,7 +90,7 @@ def _pick_exercise_card(assistant_text: str) -> ExerciseCard | None:
 
 
 async def _analyze_sentiment(content: str) -> str:
-    """Classify user message sentiment via a lightweight Bedrock Converse call.
+    """Classify user message sentiment via a lightweight Groq chat completion.
 
     Uses a single-word response to minimize tokens and latency.
     Returns one of: "positive", "neutral", "negative".
@@ -105,13 +100,12 @@ async def _analyze_sentiment(content: str) -> str:
         "Reply with exactly one word: positive, neutral, or negative.\n\n"
         f"{content}"
     )
-    async with _session.client("bedrock-runtime") as client:
-        response = await client.converse(
-            modelId=_BEDROCK_MODEL,
-            messages=[{"role": "user", "content": [{"text": prompt}]}],
-            inferenceConfig={"maxTokens": 10},
-        )
-    raw = response["output"]["message"]["content"][0]["text"].strip().lower()
+    response = await _client.chat.completions.create(
+        model=_GROQ_MODEL,
+        messages=[{"role": "user", "content": prompt}],
+        max_tokens=10,
+    )
+    raw = response.choices[0].message.content.strip().lower()
     if raw in ("positive", "neutral", "negative"):
         return raw
     return "neutral"
@@ -276,35 +270,33 @@ async def stream_chat(
         yield f"data: {json.dumps({'type': 'done', 'message_id': user_msg.id, 'exercise_card': None, 'sentiment': None, 'suggest_checkin': False, 'crisis_level': int(crisis_level)})}\n\n"
         return
 
-    # Build message history for Bedrock (last N messages including the one just saved)
+    # Build message history for Groq (last N messages including the one just saved)
     history_result = await db.execute(
         select(Message)
         .where(Message.conversation_id == conversation_id)
         .order_by(Message.created_at.desc())
         .limit(_MAX_HISTORY)
     )
-    # Reverse so oldest-first (Bedrock requires chronological order)
+    # Reverse so oldest-first (Groq requires chronological order)
     history = list(reversed(history_result.scalars().all()))
     converse_messages = _build_converse_messages(history)
 
-    # Stream from Bedrock and buffer the full response
+    # Stream from Groq and buffer the full response
     full_response: list[str] = []
     try:
-        async with _session.client("bedrock-runtime") as client:
-            response = await client.converse_stream(
-                modelId=_BEDROCK_MODEL,
-                system=[{"text": _SYSTEM_PROMPT}],
-                messages=converse_messages,
-                inferenceConfig={"maxTokens": 1024},
-            )
-            async for event in response["stream"]:
-                if "contentBlockDelta" in event:
-                    text = event["contentBlockDelta"]["delta"].get("text", "")
-                    if text:
-                        full_response.append(text)
-                        yield f"data: {json.dumps({'type': 'chunk', 'content': text})}\n\n"
+        stream = await _client.chat.completions.create(
+            model=_GROQ_MODEL,
+            messages=[{"role": "system", "content": _SYSTEM_PROMPT}] + converse_messages,
+            max_tokens=1024,
+            stream=True,
+        )
+        async for chunk in stream:
+            text = chunk.choices[0].delta.content or ""
+            if text:
+                full_response.append(text)
+                yield f"data: {json.dumps({'type': 'chunk', 'content': text})}\n\n"
     except Exception as e:
-        logger.error("Bedrock stream error for conversation %d: %s", conversation_id, e)
+        logger.error("Groq stream error for conversation %d: %s", conversation_id, e)
         # Rollback the flushed user_msg so there is no orphaned message with no paired reply
         await db.rollback()
         yield f"data: {json.dumps({'type': 'error', 'detail': 'Không thể kết nối với AI. Vui lòng thử lại.'})}\n\n"

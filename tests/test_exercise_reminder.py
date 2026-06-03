@@ -58,8 +58,9 @@ def _auth(token: str) -> dict:
 
 
 def _midday_vn() -> datetime:
-    """Fixed VN-timezone datetime at 12:00 — after 08:00 default reminder, outside quiet hours."""
-    return datetime(2026, 6, 2, 12, 0, 0, tzinfo=_VN_TZ)
+    """Today's date in VN timezone at 12:00 — after 08:00 default reminder, outside quiet hours."""
+    today = datetime.now(tz=_VN_TZ).date()
+    return datetime(today.year, today.month, today.day, 12, 0, 0, tzinfo=_VN_TZ)
 
 
 # ---------------------------------------------------------------------------

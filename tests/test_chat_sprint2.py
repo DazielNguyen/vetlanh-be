@@ -337,46 +337,43 @@ class TestUpdateDailyMood:
 
 
 class TestAnalyzeSentiment:
-    """Tests for _analyze_sentiment with mocked Bedrock Converse API."""
+    """Tests for _analyze_sentiment with mocked Groq chat completions."""
 
-    def _mock_session(self, text: str):
-        """Return a mock aioboto3 session whose converse() returns the given text."""
-        response = {"output": {"message": {"content": [{"text": text}]}}}
-        mock_client = AsyncMock()
-        mock_client.converse = AsyncMock(return_value=response)
-        mock_ctx = MagicMock()
-        mock_ctx.__aenter__ = AsyncMock(return_value=mock_client)
-        mock_ctx.__aexit__ = AsyncMock(return_value=False)
-        mock_session = MagicMock()
-        mock_session.client = MagicMock(return_value=mock_ctx)
-        return mock_session
+    def _mock_client(self, text: str):
+        """Return a mock AsyncGroq client whose chat.completions.create() returns the given text."""
+        mock_response = MagicMock()
+        mock_response.choices = [MagicMock()]
+        mock_response.choices[0].message.content = text
+        mock_groq = MagicMock()
+        mock_groq.chat.completions.create = AsyncMock(return_value=mock_response)
+        return mock_groq
 
     async def test_returns_positive(self):
         from app.services.chat import _analyze_sentiment
 
-        with patch("app.services.chat._session", self._mock_session("positive")):
+        with patch("app.services.chat._client", self._mock_client("positive")):
             result = await _analyze_sentiment("Hôm nay tôi rất vui!")
         assert result == "positive"
 
     async def test_returns_negative(self):
         from app.services.chat import _analyze_sentiment
 
-        with patch("app.services.chat._session", self._mock_session("negative")):
+        with patch("app.services.chat._client", self._mock_client("negative")):
             result = await _analyze_sentiment("Tôi cảm thấy rất buồn.")
         assert result == "negative"
 
     async def test_returns_neutral(self):
         from app.services.chat import _analyze_sentiment
 
-        with patch("app.services.chat._session", self._mock_session("neutral")):
+        with patch("app.services.chat._client", self._mock_client("neutral")):
             result = await _analyze_sentiment("Hôm nay trời bình thường.")
         assert result == "neutral"
 
     async def test_fallback_to_neutral_on_unexpected_value(self):
-        """When Bedrock returns an unrecognised word, fall back to 'neutral'."""
+        """When Groq returns an unrecognised word, fall back to 'neutral'."""
         from app.services.chat import _analyze_sentiment
 
-        with patch("app.services.chat._session", self._mock_session("unsure")):
+        with patch("app.services.chat._client", self._mock_client("unsure")):
             result = await _analyze_sentiment("Some text.")
         assert result == "neutral"
 
@@ -384,6 +381,6 @@ class TestAnalyzeSentiment:
         """Response with surrounding spaces/newlines is still recognised."""
         from app.services.chat import _analyze_sentiment
 
-        with patch("app.services.chat._session", self._mock_session("  Positive  ")):
+        with patch("app.services.chat._client", self._mock_client("  Positive  ")):
             result = await _analyze_sentiment("Tuyệt vời quá!")
         assert result == "positive"

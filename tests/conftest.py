@@ -11,8 +11,7 @@ import os
 
 # Set required env vars before any app module is imported so Settings() doesn't fail.
 # These are placeholders — no real API calls are made in unit tests (everything is mocked).
-os.environ.setdefault("AWS_ACCESS_KEY_ID", "test-key")
-os.environ.setdefault("AWS_SECRET_ACCESS_KEY", "test-secret")
+os.environ.setdefault("GROQ_API_KEY", "test-groq-key")
 # Valid Fernet key for tests — does not need to match production key
 os.environ.setdefault("JOURNAL_ENCRYPTION_KEY", "_RcBQAY99s_WZg4RGlmiNqOCfKYXX-g0st5bsZLSl38=")
 
