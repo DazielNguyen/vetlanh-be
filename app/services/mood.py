@@ -7,7 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.mood import MoodEntry
-from app.schemas.mood import HeatmapDay, HeatmapResponse, MoodEntryCreate, MoodTrendEntry, MoodTrendResponse
+from app.schemas.mood import HeatmapDay, HeatmapResponse, MoodEntryCreate, MoodSummaryEntry, MoodTrendEntry, MoodTrendResponse
 
 _EDIT_WINDOW_HOURS = 1
 # 1-day buffer so UTC+N clients can submit end-of-day entries without hitting a future-date error
@@ -148,6 +148,28 @@ async def get_heatmap(db: AsyncSession, user_id: int, year: int, month: int) -> 
     rows = result.all()
     days = [HeatmapDay(date=row.date, mood_score=row.mood) for row in rows]
     return HeatmapResponse(year=year, month=month, days=days)
+
+
+_VN_TZ = timezone(timedelta(hours=7))
+
+
+async def get_mood_summary(
+    db: AsyncSession, user_id: int, days: int = 7
+) -> list[MoodSummaryEntry]:
+    """Return mood entries for the last N days, sparse (only days with entries).
+
+    Uses VN local date so the window matches the user's calendar day, consistent
+    with how the dashboard computes checked_in_today.
+    """
+    today = datetime.now(tz=_VN_TZ).date()
+    start = today - timedelta(days=days - 1)
+    result = await db.execute(
+        select(MoodEntry)
+        .where(MoodEntry.user_id == user_id, MoodEntry.date >= start, MoodEntry.date <= today)
+        .order_by(MoodEntry.date.asc())
+    )
+    entries = list(result.scalars().all())
+    return [MoodSummaryEntry(date=e.date, sentiment_score=e.mood) for e in entries]
 
 
 async def update_daily_mood(db: AsyncSession, user_id: int, sentiment: str) -> None:

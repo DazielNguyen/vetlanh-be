@@ -312,7 +312,8 @@ class TestGetDashboard:
 
     async def test_checked_in_today_true_when_today_has_entry(self):
         from app.services.dashboard import get_dashboard
-        today = datetime.now(tz=timezone.utc).date()
+        _VN_TZ = timezone(timedelta(hours=7))
+        today = datetime.now(tz=_VN_TZ).date()
         entry = _make_mood_entry(date_val=today, mood=3)
         db = self._make_db_with_entries([entry])
         user = self._make_user()
@@ -537,7 +538,8 @@ class TestGetDashboardAPI:
     async def test_checked_in_today_true_after_mood_checkin(self, client: AsyncClient):
         token = await _register_and_login(client, "dash_ci_true@test.vetlanh")
         headers = _auth(token)
-        today_str = datetime.now(tz=timezone.utc).date().isoformat()
+        _VN_TZ = timezone(timedelta(hours=7))
+        today_str = datetime.now(tz=_VN_TZ).date().isoformat()
         await client.post(
             "/api/v1/mood/entries",
             json={"mood": 3, "date": today_str, "note": "feeling ok"},
@@ -549,7 +551,8 @@ class TestGetDashboardAPI:
     async def test_today_mood_present_after_checkin(self, client: AsyncClient):
         token = await _register_and_login(client, "dash_mood_present@test.vetlanh")
         headers = _auth(token)
-        today_str = datetime.now(tz=timezone.utc).date().isoformat()
+        _VN_TZ = timezone(timedelta(hours=7))
+        today_str = datetime.now(tz=_VN_TZ).date().isoformat()
         await client.post(
             "/api/v1/mood/entries",
             json={"mood": 4, "date": today_str},

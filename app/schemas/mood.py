@@ -72,3 +72,10 @@ class HeatmapResponse(BaseModel):
     year: int
     month: int
     days: list[HeatmapDay]
+
+
+class MoodSummaryEntry(BaseModel):
+    date: date
+    sentiment_score: int = Field(..., ge=1, le=5)
+
+    model_config = {"from_attributes": True}
