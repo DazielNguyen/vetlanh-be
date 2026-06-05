@@ -14,7 +14,7 @@ class Conversation(Base, TimestampMixin):
     title: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
     user = relationship("User", back_populates="conversations")
-    messages = relationship("Message", back_populates="conversation", order_by="Message.created_at")
+    messages = relationship("Message", back_populates="conversation", order_by="Message.created_at", passive_deletes=True)
 
 
 class Message(Base, TimestampMixin):
