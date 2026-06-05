@@ -14,7 +14,7 @@ services:
     volumes:
       - vetlanh_postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-vetlanh}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-vetlanh} -d ${POSTGRES_DB:-vetlanh_db}"]
       interval: 5s
       timeout: 5s
       retries: 5
