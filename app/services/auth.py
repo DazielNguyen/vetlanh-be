@@ -127,8 +127,53 @@ async def resend_verification(db: AsyncSession, email: str) -> str:
     return token
 
 
+async def login_with_username(db: AsyncSession, username: str, password: str) -> str:
+    result = await db.execute(select(User).where(User.username == username))
+    user = result.scalar_one_or_none()
+
+    if not user or not user.hashed_password or not verify_password(password, user.hashed_password):
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+
+    if not user.is_active:
+        raise HTTPException(status_code=403, detail="Account is deactivated")
+
+    return create_access_token(subject=username)
+
+
+async def register_with_username(db: AsyncSession, username: str, password: str) -> str:
+    """Create a username-only user (no email). Returns access_token immediately.
+
+    Unlike email registration, this path skips verification entirely — the user
+    is active and verified on creation. There is no recovery path if the password
+    is forgotten; the caller should prompt the user to add an email.
+    """
+    result = await db.execute(select(User).where(User.username == username))
+    if result.scalar_one_or_none():
+        raise HTTPException(status_code=409, detail="Username already taken")
+
+    user = User(
+        email=None,
+        username=username,
+        hashed_password=hash_password(password),
+        is_verified=True,
+        auth_provider="username",
+    )
+    db.add(user)
+    await db.commit()
+    await db.refresh(user)
+    return create_access_token(subject=username)
+
+
 async def get_user_by_email(db: AsyncSession, email: str) -> User:
     result = await db.execute(select(User).where(User.email == email))
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return user
+
+
+async def get_user_by_username(db: AsyncSession, username: str) -> User:
+    result = await db.execute(select(User).where(User.username == username, User.is_active == True))
     user = result.scalar_one_or_none()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")

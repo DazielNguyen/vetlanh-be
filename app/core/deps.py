@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import AsyncSessionLocal
 from app.core.security import decode_access_token
-from app.services.auth import get_user_by_email
+from app.services.auth import get_user_by_email, get_user_by_username
 
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
@@ -33,7 +33,7 @@ async def get_current_user(
 ):
     """Extract and validate JWT token, return the authenticated User."""
     try:
-        email = decode_access_token(credentials.credentials)
+        subject = decode_access_token(credentials.credentials)
     except JWTError:
         raise HTTPException(
             status_code=401,
@@ -41,4 +41,8 @@ async def get_current_user(
             headers={"WWW-Authenticate": "Bearer"},  # required by RFC 7235
         )
 
-    return await get_user_by_email(db, email)
+    # Email users have their email as JWT subject; username users have their username.
+    # "@" is a reliable discriminator — usernames are restricted to alnum/hyphen/underscore.
+    if "@" in subject:
+        return await get_user_by_email(db, subject)
+    return await get_user_by_username(db, subject)

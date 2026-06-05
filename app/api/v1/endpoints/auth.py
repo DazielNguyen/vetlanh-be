@@ -1,11 +1,14 @@
-from fastapi import APIRouter, BackgroundTasks, Depends, Query
+from urllib.parse import quote
+
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from fastapi.responses import RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
 from app.core.deps import get_db
 from app.core.security import create_access_token
-from app.schemas.auth import MessageResponse, ResendRequest, Token, UserLogin, UserRegister, UserResponse
-from app.services.auth import login_user, register_user, resend_verification, verify_email
+from app.schemas.auth import MessageResponse, ResendRequest, Token, UserLogin, UserRegister, UsernameLogin, UsernameRegister, UserResponse
+from app.services.auth import login_user, login_with_username, register_user, register_with_username, resend_verification, verify_email
 from app.services.email import send_verification_email
 from app.services.oauth import build_google_auth_url, google_upsert_user
 
@@ -26,6 +29,18 @@ async def register(
     background_tasks.add_task(send_verification_email, user.email, token)
 
     return user
+
+
+@router.post("/auth/register-username", response_model=Token, status_code=201)
+async def register_username(body: UsernameRegister, db: AsyncSession = Depends(get_db)):
+    token = await register_with_username(db, body.username, body.password)
+    return Token(access_token=token)
+
+
+@router.post("/auth/login-username", response_model=Token)
+async def login_username(body: UsernameLogin, db: AsyncSession = Depends(get_db)):
+    token = await login_with_username(db, body.username, body.password)
+    return Token(access_token=token)
 
 
 @router.post("/auth/login", response_model=Token)
@@ -50,15 +65,20 @@ async def google_auth():
     return {"authorization_url": url}
 
 
-@router.get("/auth/google/callback", response_model=Token)
+@router.get("/auth/google/callback")
 async def google_callback(
     code: str = Query(..., description="Authorization code returned by Google"),
     db: AsyncSession = Depends(get_db),
 ):
-    """Exchange the Google authorization code for a JWT access token."""
-    user = await google_upsert_user(db, code)
-    await db.commit()
-    return Token(access_token=create_access_token(subject=user.email))
+    """Exchange the Google authorization code for a JWT, then redirect to the frontend."""
+    try:
+        user = await google_upsert_user(db, code)
+        await db.commit()
+        token = create_access_token(subject=user.email)
+        return RedirectResponse(f"{settings.FRONTEND_URL}/auth/google/callback?token={token}")
+    except HTTPException as exc:
+        error_msg = quote(str(exc.detail))
+        return RedirectResponse(f"{settings.FRONTEND_URL}/login?error={error_msg}")
 
 
 @router.post("/auth/resend-verification", response_model=MessageResponse)

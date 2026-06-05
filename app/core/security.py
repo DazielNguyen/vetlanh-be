@@ -29,7 +29,7 @@ def create_access_token(subject: str) -> str:
 
 
 def decode_access_token(token: str) -> str:
-    """Return the subject (email) from a valid token, or raise JWTError."""
+    """Return the JWT subject (email for email/Google users, username for username users), or raise JWTError."""
     payload = jwt.decode(token, settings.SECRET_KEY, algorithms=["HS256"])
     # jwt.decode validates expiry automatically — never pass verify_exp=False
     return payload["sub"]
