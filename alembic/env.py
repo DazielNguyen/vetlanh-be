@@ -2,12 +2,17 @@ import os
 import sys
 from logging.config import fileConfig
 
+from dotenv import load_dotenv
 from sqlalchemy import create_engine, pool
 from sqlalchemy.engine import make_url
 from alembic import context
 
 # Make sure `app` package is importable when running alembic from project root
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+
+# Load .env so migrations can access os.environ directly (pydantic-settings
+# populates Settings attributes but does not set os.environ).
+load_dotenv()
 
 from app.core.config import settings
 from app.models.base import Base

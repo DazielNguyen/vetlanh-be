@@ -28,6 +28,9 @@ dev:
 stop:
 	docker compose down
 
+clear:
+	docker compose down -v
+
 logs:
 	docker compose logs -f db
 

@@ -1,6 +1,6 @@
 """add exercise reminder to notification preferences
 
-Revision ID: a1b2c3d4e5f6
+Revision ID: b2c3d4e5f6a7
 Revises: f1a2b3c4d5e6
 Create Date: 2026-06-02 22:50:00.000000
 """
@@ -8,7 +8,7 @@ Create Date: 2026-06-02 22:50:00.000000
 import sqlalchemy as sa
 from alembic import op
 
-revision = "a1b2c3d4e5f6"
+revision = "b2c3d4e5f6a7"
 down_revision = "f1a2b3c4d5e6"
 branch_labels = None
 depends_on = None
