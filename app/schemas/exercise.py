@@ -20,6 +20,23 @@ class MoodFilter(str, Enum):
     angry = "angry"
 
 
+CATEGORY_LABELS: dict[ExerciseCategory, str] = {
+    ExerciseCategory.breathing: "Hơi thở",
+    ExerciseCategory.meditation: "Thiền",
+    ExerciseCategory.grounding: "Hiện tại",
+    ExerciseCategory.cbt: "CBT",
+    ExerciseCategory.relaxation: "Thư giãn",
+}
+
+MOOD_FILTER_LABELS: dict[MoodFilter, str] = {
+    MoodFilter.anxious: "Lo âu",
+    MoodFilter.sad: "Buồn bã",
+    MoodFilter.cant_sleep: "Mất ngủ",
+    MoodFilter.need_energy: "Cần năng lượng",
+    MoodFilter.angry: "Tức giận",
+}
+
+
 class BreathingPhase(BaseModel):
     label: str
     seconds: int

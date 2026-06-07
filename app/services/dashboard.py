@@ -5,9 +5,32 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.mood import MoodEntry
 from app.models.user import User
-from app.schemas.dashboard import DashboardResponse, MoodSparkline
+from app.schemas.dashboard import DailyQuoteResponse, DashboardResponse, MoodSparkline
 from app.schemas.exercise import MoodFilter
 from app.services.exercise import get_recommended
+
+_QUOTES: list[tuple[str, str | None]] = [
+    ("Chữa lành không phải đường thẳng, nhưng mỗi bước tiến đều là một chiến thắng.", None),
+    ("Bạn không cần phải ổn định mọi lúc. Cho phép bản thân cảm nhận.", None),
+    ("Sức mạnh không phải là không sợ hãi, mà là tiếp tục dù đang sợ.", "Nelson Mandela"),
+    ("Mỗi ngày là một cơ hội mới để bắt đầu lại.", None),
+    ("Chăm sóc bản thân không phải ích kỷ — đó là điều cần thiết.", None),
+    ("Hơi thở luôn ở đây. Hiện tại luôn ở đây. Bạn không cô đơn.", None),
+    ("Tiến bộ nhỏ vẫn là tiến bộ. Hãy tự hào về bản thân.", None),
+    ("Bình yên không đến từ bên ngoài — nó bắt đầu từ bên trong bạn.", None),
+    ("Bạn đã vượt qua 100% những ngày khó khăn trước đây.", None),
+    ("Cảm xúc của bạn là thật và xứng đáng được lắng nghe.", None),
+    ("Không cần hoàn hảo — chỉ cần tiếp tục.", None),
+    ("Mỗi đêm tối rồi cũng qua đi. Bình minh luôn đến.", None),
+]
+
+
+def get_daily_quote() -> DailyQuoteResponse:
+    # Rotate deterministically by day-of-year so everyone gets the same quote each day
+    day_index = datetime.now(tz=timezone.utc).timetuple().tm_yday
+    text, author = _QUOTES[day_index % len(_QUOTES)]
+    return DailyQuoteResponse(text=text, author=author)
+
 
 _MOOD_TO_FILTER: dict[int, MoodFilter] = {
     1: MoodFilter.sad,

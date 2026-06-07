@@ -337,3 +337,16 @@ async def stream_chat(
         "crisis_level": int(crisis_level),
     }
     yield f"data: {json.dumps(done_payload)}\n\n"
+
+
+_QUICK_PROMPTS: list[dict] = [
+    {"id": "qp-1", "text": "Tôi đang cảm thấy lo lắng và không biết phải làm gì"},
+    {"id": "qp-2", "text": "Gợi ý cho tôi một bài tập thở để thư giãn"},
+    {"id": "qp-3", "text": "Hôm nay tôi cảm thấy buồn, bạn có thể lắng nghe không?"},
+    {"id": "qp-4", "text": "Làm thế nào để cải thiện giấc ngủ của tôi?"},
+    {"id": "qp-5", "text": "Tôi muốn thực hành chánh niệm, bắt đầu từ đâu?"},
+]
+
+
+def get_quick_prompts() -> list[dict]:
+    return _QUICK_PROMPTS

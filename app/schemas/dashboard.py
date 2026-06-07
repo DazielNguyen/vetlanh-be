@@ -18,3 +18,8 @@ class DashboardResponse(BaseModel):
     streak_days: int
     mood_sparkline: list[MoodSparkline]  # last 7 days, oldest → newest
     recommended_exercises: list[ExerciseResponse]  # top 3 based on latest mood
+
+
+class DailyQuoteResponse(BaseModel):
+    text: str
+    author: str | None = None

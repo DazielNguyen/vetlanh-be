@@ -4,6 +4,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.deps import get_current_user, get_db
 from app.models.user import User
 from app.schemas.exercise import (
+    CATEGORY_LABELS,
+    MOOD_FILTER_LABELS,
     ExerciseCategory,
     ExerciseLogCreate,
     ExerciseLogResponse,
@@ -68,6 +70,19 @@ async def get_history(
     return await get_exercise_history(db, current_user.id, limit=limit, offset=offset)
 
 
+@router.get("/categories", response_model=list[dict])
+async def list_categories():
+    """Return all exercise categories with display labels (public, no auth)."""
+    return [{"key": c.value, "label": CATEGORY_LABELS[c]} for c in ExerciseCategory]
+
+
+@router.get("/mood-filters", response_model=list[dict])
+async def list_mood_filters():
+    """Return all mood filter options with display labels (public, no auth)."""
+    return [{"key": m.value, "label": MOOD_FILTER_LABELS[m]} for m in MoodFilter]
+
+
+# /{slug} must be registered LAST — static path prefixes above take priority.
 @router.get("/{slug}", response_model=ExerciseResponse)
 async def get_exercise_detail(
     slug: str,

@@ -5,8 +5,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_current_user, get_db
 from app.models.user import User
-from app.schemas.dashboard import DashboardResponse
-from app.services.dashboard import get_dashboard
+from app.schemas.dashboard import DailyQuoteResponse, DashboardResponse
+from app.services.dashboard import get_daily_quote, get_dashboard
 
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
 
@@ -18,3 +18,9 @@ async def get_home_dashboard(
 ):
     """US-026: Home dashboard — greeting, mood status, streak, 7-day sparkline, recommendations."""
     return await get_dashboard(db, current_user)
+
+
+@router.get("/quote", response_model=DailyQuoteResponse)
+async def get_quote(_: User = Depends(get_current_user)):
+    """Return today's motivational quote (rotates daily)."""
+    return get_daily_quote()

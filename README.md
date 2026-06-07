@@ -23,6 +23,9 @@ Backend API for the Vet Lanh mental wellness platform. Built with FastAPI and as
   - [Safety Plan](#safety-plan)
   - [Crisis Resources](#crisis-resources)
   - [Dashboard](#dashboard)
+  - [Resources](#resources)
+  - [Community](#community)
+  - [Wellness](#wellness)
   - [Badges](#badges)
   - [Notifications](#notifications)
   - [Health Check](#health-check)
@@ -192,6 +195,8 @@ Authentication required.
 | PATCH  | `/users/me`                  | Update display name, avatar URL, or timezone.       |
 | PUT    | `/users/me/goals`            | Replace the user's selected wellness goals.         |
 | GET    | `/users/me/goals/available`  | List all selectable goal options with labels.       |
+| GET    | `/users/me/stats`            | Get user activity stats: exercises completed, mood streak. |
+| GET    | `/users/me/healing-path`     | Get healing path progress across core self-care tasks. |
 
 **User object:**
 ```json
@@ -276,15 +281,14 @@ Query params: limit (default 50, max 200), offset (default 0)
 
 ### Mood Tracking
 
-Authentication required.
-
 | Method | Path               | Description                                                        |
 | ------ | ------------------ | ------------------------------------------------------------------ |
-| POST   | `/mood/entries`    | Create or update a mood check-in for a given date.                 |
-| GET    | `/mood/entries`    | List mood entries with optional date range filter.                 |
-| GET    | `/mood/insights`   | Get AI-generated insights (requires at least 7 check-ins).         |
-| GET    | `/mood/heatmap`    | Get sparse mood heatmap for a given year and month.                |
-| GET    | `/mood/trend`      | Get mood trend data for the last 7 days or 30 days.                |
+| POST   | `/mood/entries`    | Create or update a mood check-in for a given date. (auth required) |
+| GET    | `/mood/entries`    | List mood entries with optional date range filter. (auth required) |
+| GET    | `/mood/insights`   | Get AI-generated insights (requires at least 7 check-ins). (auth)  |
+| GET    | `/mood/heatmap`    | Get sparse mood heatmap for a given year and month. (auth)         |
+| GET    | `/mood/trend`      | Get mood trend data for the last 7 days or 30 days. (auth)         |
+| GET    | `/mood/factors`    | Get the list of mood check-in factors (public).                    |
 
 **POST /mood/entries — Request body:**
 ```json
@@ -401,15 +405,15 @@ Query params: topic (optional) — filter by topic slug
 
 ### Exercises
 
-Authentication required.
-
 | Method | Path                       | Description                                                      |
 | ------ | -------------------------- | ---------------------------------------------------------------- |
-| GET    | `/exercises`               | List all exercises, optionally filtered by mood and/or category. |
-| GET    | `/exercises/recommended`   | Get top N exercises recommended for a given mood.                |
-| POST   | `/exercises/logs`          | Record a completed exercise session.                             |
-| GET    | `/exercises/logs/history`  | Get the user's exercise completion history.                      |
-| GET    | `/exercises/{slug}`        | Get full exercise detail including steps and phases.             |
+| GET    | `/exercises`               | List all exercises, optionally filtered by mood and/or category. (auth required) |
+| GET    | `/exercises/recommended`   | Get top N exercises recommended for a given mood. (auth required) |
+| GET    | `/exercises/categories`    | Get all exercise categories with display labels (public).         |
+| GET    | `/exercises/mood-filters`  | Get all mood filter options with display labels (public).         |
+| POST   | `/exercises/logs`          | Record a completed exercise session. (auth required)              |
+| GET    | `/exercises/logs/history`  | Get the user's exercise completion history. (auth required)       |
+| GET    | `/exercises/{slug}`        | Get full exercise detail including steps and phases. (auth required) |
 
 **GET /exercises**
 ```
@@ -439,15 +443,16 @@ Query params: limit (default 20, max 100), offset
 
 ### Chat (AI Companion)
 
-Authentication required. AI responses are streamed as Server-Sent Events (SSE).
-
 | Method | Path                                          | Description                                              |
 | ------ | --------------------------------------------- | -------------------------------------------------------- |
-| POST   | `/chat/conversations`                         | Create a new conversation thread.                        |
-| GET    | `/chat/conversations`                         | List conversations with optional title search.           |
-| DELETE | `/chat/conversations/{id}`                    | Delete a conversation and all its messages.              |
-| GET    | `/chat/conversations/{id}/messages`           | Get all messages in a conversation.                      |
-| POST   | `/chat/conversations/{id}/messages`           | Send a message and receive the AI response via SSE.      |
+| GET    | `/chat/quick-prompts`                         | Get suggested prompts for empty conversations (public).  |
+| POST   | `/chat/conversations`                         | Create a new conversation thread. (auth required)        |
+| GET    | `/chat/conversations`                         | List conversations with optional title search. (auth)    |
+| DELETE | `/chat/conversations/{id}`                    | Delete a conversation and all its messages. (auth)       |
+| GET    | `/chat/conversations/{id}/messages`           | Get all messages in a conversation. (auth required)      |
+| POST   | `/chat/conversations/{id}/messages`           | Send a message and receive the AI response via SSE. (auth) |
+
+**Note:** AI responses are streamed as Server-Sent Events (SSE).
 
 **POST /chat/conversations — Request body:**
 ```json
@@ -591,13 +596,12 @@ No authentication required. Always accessible without login.
 
 ### Dashboard
 
-Authentication required.
-
 | Method | Path          | Description                                                             |
 | ------ | ------------- | ----------------------------------------------------------------------- |
-| GET    | `/dashboard`  | Get home dashboard: greeting, mood status, streak, sparkline, and tips. |
+| GET    | `/dashboard`  | Get home dashboard: greeting, mood status, streak, sparkline, and tips. (auth required) |
+| GET    | `/dashboard/quote` | Get today's motivational quote (rotates daily). (auth required)       |
 
-**Response:**
+**GET /dashboard — Response:**
 ```json
 {
   "greeting": "Good morning, Nguyen Van A",
@@ -608,6 +612,96 @@ Authentication required.
   "recommended_exercises": [...],
   "phq9_reminder": { "due": false }
 }
+```
+
+**GET /dashboard/quote — Response:**
+```json
+{
+  "quote": "The only way out is through.",
+  "author": "Robert Frost"
+}
+```
+
+---
+
+### Resources
+
+Authentication required.
+
+| Method | Path                      | Description                                        |
+| ------ | ------------------------- | -------------------------------------------------- |
+| GET    | `/resources/recommended`  | Get a curated list of healing resources.           |
+
+**GET /resources/recommended**
+```
+Query params: limit (default 2, max 10)
+```
+
+**Response:**
+```json
+[
+  {
+    "id": 1,
+    "title": "Mindfulness for Beginners",
+    "description": "Learn foundational mindfulness techniques...",
+    "url": "https://example.com/mindfulness",
+    "category": "meditation"
+  }
+]
+```
+
+---
+
+### Community
+
+No authentication required. Community features are publicly accessible.
+
+| Method | Path                 | Description                                   |
+| ------ | -------------------- | --------------------------------------------- |
+| GET    | `/community/featured` | Get a featured community message.              |
+
+**Response:**
+```json
+{
+  "message": "You are not alone. Our community is here to support you.",
+  "featured_date": "2026-06-07"
+}
+```
+
+---
+
+### Wellness
+
+Authentication required.
+
+| Method | Path                           | Description                                                  |
+| ------ | ------------------------------ | ------------------------------------------------------------ |
+| GET    | `/wellness/checklist`          | Get the daily wellness checklist with completion state.      |
+| PUT    | `/wellness/checklist/{item_id}`| Mark a wellness checklist item as completed or not.          |
+
+**GET /wellness/checklist**
+```
+Query params: date (optional, defaults to today in Vietnam timezone)
+```
+
+**Response:**
+```json
+{
+  "date": "2026-06-07",
+  "items": [
+    {
+      "id": "morning_mood",
+      "label": "Check in on your mood",
+      "completed": true
+    }
+  ]
+}
+```
+
+**PUT /wellness/checklist/{item_id}**
+```
+Query params: date (optional, defaults to today)
+Request body: { "completed": true }
 ```
 
 ---

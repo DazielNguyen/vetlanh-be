@@ -7,7 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.mood import MoodEntry
-from app.schemas.mood import HeatmapDay, HeatmapResponse, MoodEntryCreate, MoodSummaryEntry, MoodTrendEntry, MoodTrendResponse
+from app.schemas.mood import HeatmapDay, HeatmapResponse, MoodEntryCreate, MoodFactor, MoodSummaryEntry, MoodTrendEntry, MoodTrendResponse
 
 _EDIT_WINDOW_HOURS = 1
 # 1-day buffer so UTC+N clients can submit end-of-day entries without hitting a future-date error
@@ -170,6 +170,23 @@ async def get_mood_summary(
     )
     entries = list(result.scalars().all())
     return [MoodSummaryEntry(date=e.date, sentiment_score=e.mood) for e in entries]
+
+
+_MOOD_FACTORS: list[MoodFactor] = [
+    MoodFactor(key="work", label="Công việc"),
+    MoodFactor(key="sleep", label="Giấc ngủ"),
+    MoodFactor(key="exercise", label="Tập thể dục"),
+    MoodFactor(key="diet", label="Ăn uống"),
+    MoodFactor(key="relationships", label="Mối quan hệ"),
+    MoodFactor(key="weather", label="Thời tiết"),
+    MoodFactor(key="health", label="Sức khỏe"),
+    MoodFactor(key="finance", label="Tài chính"),
+    MoodFactor(key="study", label="Học tập"),
+]
+
+
+def get_mood_factors() -> list[MoodFactor]:
+    return _MOOD_FACTORS
 
 
 async def update_daily_mood(db: AsyncSession, user_id: int, sentiment: str) -> None:

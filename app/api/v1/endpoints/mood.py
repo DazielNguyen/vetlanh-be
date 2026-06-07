@@ -8,9 +8,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_current_user, get_db
 from app.models.user import User
-from app.schemas.mood import HeatmapResponse, InsightsResponse, MoodEntryCreate, MoodEntryResponse, MoodTrendResponse
+from app.schemas.mood import HeatmapResponse, InsightsResponse, MoodEntryCreate, MoodEntryResponse, MoodFactor, MoodTrendResponse
 from app.services.insights import get_insights
-from app.services.mood import create_or_update_entry, get_heatmap, get_trend, list_entries
+from app.services.mood import create_or_update_entry, get_heatmap, get_mood_factors, get_trend, list_entries
 
 router = APIRouter(prefix="/mood", tags=["mood"])
 
@@ -70,6 +70,12 @@ async def get_mood_heatmap(
 ):
     """Return sparse mood heatmap for a given year/month. Only days with entries are included."""
     return await get_heatmap(db, current_user.id, year, month)
+
+
+@router.get("/factors", response_model=list[MoodFactor])
+async def get_factors():
+    """Return the list of mood check-in factors (public, no auth required)."""
+    return get_mood_factors()
 
 
 @router.get("/trend", response_model=MoodTrendResponse)

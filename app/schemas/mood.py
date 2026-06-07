@@ -79,3 +79,8 @@ class MoodSummaryEntry(BaseModel):
     sentiment_score: int = Field(..., ge=1, le=5)
 
     model_config = {"from_attributes": True}
+
+
+class MoodFactor(BaseModel):
+    key: str
+    label: str

@@ -9,6 +9,7 @@ from app.services.chat import (
     create_conversation,
     delete_conversation,
     get_messages,
+    get_quick_prompts,
     list_conversations,
     stream_chat,
 )
@@ -16,6 +17,12 @@ from app.services.chat import (
 router = APIRouter(prefix="/chat", tags=["chat"])
 
 _NOT_FOUND = "Conversation not found"
+
+
+@router.get("/quick-prompts")
+async def quick_prompts():
+    """Return suggested prompts shown when a conversation is empty (public, no auth)."""
+    return get_quick_prompts()
 
 
 @router.post("/conversations", response_model=ConversationResponse, status_code=201)
