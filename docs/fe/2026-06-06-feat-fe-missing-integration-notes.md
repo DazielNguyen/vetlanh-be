@@ -136,6 +136,25 @@ Không có error code mới từ phía BE. Xem [2026-06-06-feat-fe-missing-integ
 
 ---
 
+## 5) Pending BE items
+
+### SignalR hub endpoint — cần BE xử lý
+
+**Error hiện tại:**
+```
+Failed to complete negotiation with the server: {"detail":"Not Found"}: Status code '404'
+```
+
+**Context:** FE đang kết nối tới `http://localhost:8000/hubs/app` (config trong `lib/realtime/signalr.ts → getHubUrl()`). BE trả 404 — hub chưa được mount.
+
+**Việc cần làm (BE team):**
+1. Mount SignalR hub tại path `/hubs/app`, hoặc
+2. Thông báo đúng path để FE cập nhật `getHubUrl()` trong `lib/realtime/signalr.ts`
+
+**FE không thay đổi gì** cho đến khi BE xác nhận path.
+
+---
+
 ## 4) FE notes
 
 - **Thứ tự ưu tiên:** Item 4 (delta color) là bug dễ fix nhất — 3 dòng. Làm trước.
