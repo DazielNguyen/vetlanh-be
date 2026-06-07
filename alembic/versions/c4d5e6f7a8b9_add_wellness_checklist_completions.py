@@ -1,15 +1,15 @@
 """add wellness_checklist_completions table
 
-Revision ID: a1b2c3d4e5f6
-Revises: f1a2b3c4d5e6
+Revision ID: c4d5e6f7a8b9
+Revises: a1b2c3d4e5f6
 Create Date: 2026-06-07 10:00:00.000000
 """
 
 import sqlalchemy as sa
 from alembic import op
 
-revision = "a1b2c3d4e5f6"
-down_revision = "f1a2b3c4d5e6"
+revision = "c4d5e6f7a8b9"
+down_revision = "a1b2c3d4e5f6"
 branch_labels = None
 depends_on = None
 
