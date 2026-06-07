@@ -7,6 +7,7 @@ from alembic.config import Config
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.api.hub import router as hub_router
 from app.api.v1 import router as v1_router
 from app.core.database import engine
 
@@ -38,4 +39,5 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(hub_router)
 app.include_router(v1_router, prefix="/api/v1")
