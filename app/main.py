@@ -14,6 +14,7 @@ from slowapi.errors import RateLimitExceeded
 
 from app.api.hub import router as hub_router
 from app.api.v1 import router as v1_router
+from app.core.config import settings
 from app.core.database import AsyncSessionLocal, engine
 from app.core.rate_limit import limiter
 
@@ -41,9 +42,16 @@ app = FastAPI(title="vetlanh-be", lifespan=lifespan)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
+_cors_origins = [
+    "http://localhost:3000",
+    "http://localhost:5173",
+    settings.FRONTEND_URL,
+    *[o.strip() for o in settings.CORS_ORIGINS.split(",") if o.strip()],
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:5173"],
+    allow_origins=list(dict.fromkeys(_cors_origins)),  # deduplicate, preserve order
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
