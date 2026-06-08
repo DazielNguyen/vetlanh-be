@@ -1,5 +1,4 @@
 import logging
-import os
 from collections.abc import AsyncGenerator
 
 from fastapi import Depends, HTTPException
@@ -7,17 +6,18 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
 from app.core.database import AsyncSessionLocal
 from app.core.security import decode_access_token
 from app.services.auth import get_user_by_email, get_user_by_username
 
 logger = logging.getLogger(__name__)
 
-# Parse ADMIN_USERS once at startup — comma-separated list of usernames.
+# Parse ADMIN_USERS once at startup via pydantic-settings (reads .env correctly).
 # Empty set → no admin access. A warning fires so misconfigured deploys are
 # immediately visible in logs rather than silently blocking all admin access.
 _ADMIN_USERS: frozenset[str] = frozenset(
-    u.strip() for u in os.getenv("ADMIN_USERS", "").split(",") if u.strip()
+    u.strip() for u in settings.ADMIN_USERS.split(",") if u.strip()
 )
 if not _ADMIN_USERS:
     logger.warning("ADMIN_USERS is empty — no admin access is possible")
@@ -70,12 +70,10 @@ async def require_admin(
     against their email address and username users against their username, preventing
     namespace confusion between the two registration types.
     """
-    # Mirror the discriminator in get_current_user: the JWT subject determines which
-    # field uniquely identifies this user.  Don't fall back across namespaces.
-    if current_user.email and "@" in (current_user.email or ""):
-        identity = current_user.email or ""
-    else:
-        identity = current_user.username or ""
-    if identity not in _ADMIN_USERS:
+    # Check both username and email so admins can be listed by either.
+    # A user registered via email has a valid username too — requiring only one form
+    # would force the operator to know which field to use.
+    identities = {v for v in (current_user.username, current_user.email) if v}
+    if not identities & _ADMIN_USERS:
         raise HTTPException(status_code=403, detail="Admin access required")
     return current_user
