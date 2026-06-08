@@ -1,5 +1,6 @@
 aiosmtplib==5.1.0
 groq
+slowapi==0.1.9
 alembic==1.18.4
 annotated-doc==0.0.4
 annotated-types==0.7.0

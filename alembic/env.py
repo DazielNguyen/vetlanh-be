@@ -19,7 +19,7 @@ from app.models.base import Base
 
 # Import every model module so Alembic can see its tables in autogenerate.
 # Add new model imports here as you create them.
-from app.models import assessment, badge_notification, conversation, exercise, journal, mood, notification_preference, safety_plan, thought_record, user, wellness  # noqa: F401
+from app.models import assessment, badge_notification, conversation, exercise, journal, mood, notification_preference, safety_plan, subscription, system_error, thought_record, user, wellness  # noqa: F401
 
 # Alembic Config object — gives access to alembic.ini values
 config = context.config

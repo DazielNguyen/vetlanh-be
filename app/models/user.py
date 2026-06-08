@@ -34,6 +34,9 @@ class User(Base, TimestampMixin):
     display_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
     avatar_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
     timezone: Mapped[str | None] = mapped_column(String(64), nullable=True, server_default="Asia/Ho_Chi_Minh")
+    # "email" | "username" | "google" — how the user registered; drives admin panel badge
+    account_type: Mapped[str | None] = mapped_column(String(20), nullable=True, server_default="email")
+    last_active_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     assessments = relationship("Assessment", back_populates="user", order_by="Assessment.created_at")
     conversations = relationship("Conversation", back_populates="user", order_by="Conversation.created_at")
