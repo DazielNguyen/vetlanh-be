@@ -8,7 +8,7 @@ class Settings(BaseSettings):
 
     # Email — Resend API used for verification emails
     RESEND_API_KEY: str = ""
-    EMAIL_FROM: str = "noreply@vetlanh.app"
+    EMAIL_FROM: str = "noreply@vetlanh.io.vn"
 
     # Public origin of the API server — used to build email verification links.
     # Must always point at the backend (e.g. https://api.vetlanh.io.vn), never the frontend.
