@@ -6,14 +6,12 @@ class Settings(BaseSettings):
     SECRET_KEY: str
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
 
-    # Email / SMTP — used for verification emails
-    SMTP_HOST: str = "sandbox.smtp.mailtrap.io"
-    SMTP_PORT: int = 587
-    SMTP_USER: str = ""
-    SMTP_PASSWORD: str = ""
-    SMTP_FROM: str = "noreply@vetlanh.app"
+    # Email — Resend API used for verification emails
+    RESEND_API_KEY: str = ""
+    EMAIL_FROM: str = "noreply@vetlanh.app"
 
-    # Base URL used in email links (set to frontend URL in prod)
+    # Public origin of the API server — used to build email verification links.
+    # Must always point at the backend (e.g. https://api.vetlanh.io.vn), never the frontend.
     APP_BASE_URL: str = "http://localhost:8000"
 
     # Journal encryption — required; no default so startup fails loudly when missing

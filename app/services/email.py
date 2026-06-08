@@ -1,25 +1,24 @@
 """
-Email sending service — wraps aiosmtplib for async SMTP.
+Email sending service — uses the Resend API for transactional email.
 
-Why aiosmtplib instead of smtplib:
-  smtplib is blocking; calling it directly in an async handler freezes the
-  event loop for every other request while the TCP handshake completes.
-  aiosmtplib does the same work without blocking.
+Why asyncio.to_thread:
+  resend.Emails.send() is a synchronous HTTP call. Wrapping it in
+  asyncio.to_thread() offloads it to a worker thread so the event loop
+  is never blocked while waiting for the Resend API response.
 """
 
+import asyncio
 import logging
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
+from urllib.parse import quote
 
-import aiosmtplib
+import resend
 
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
-# Mailtrap port 2525 is plain SMTP — no TLS needed (sandbox env).
-# For production (port 587), set SMTP_USE_TLS=true in .env.
-_TLS_PORTS = {465, 587}
+# Set once at import time so the key is never mutated inside a thread.
+resend.api_key = settings.RESEND_API_KEY
 
 
 async def send_verification_email(to_email: str, token: str) -> None:
@@ -29,12 +28,7 @@ async def send_verification_email(to_email: str, token: str) -> None:
     Logs the error and returns silently on failure — the user can request a
     resend; we should not crash the registration flow over an email outage.
     """
-    verify_url = f"{settings.APP_BASE_URL}/api/v1/auth/verify?token={token}"
-
-    message = MIMEMultipart("alternative")
-    message["Subject"] = "Xác minh tài khoản Vết Lành"
-    message["From"] = settings.SMTP_FROM
-    message["To"] = to_email
+    verify_url = f"{settings.APP_BASE_URL}/api/v1/auth/verify?token={quote(token, safe='')}"
 
     html_body = f"""
     <html>
@@ -53,22 +47,16 @@ async def send_verification_email(to_email: str, token: str) -> None:
       </body>
     </html>
     """
-    message.attach(MIMEText(html_body, "html"))
 
-    # Use STARTTLS only on standard secure ports.
-    # Mailtrap sandbox (port 2525) is plain SMTP — sending start_tls=True causes
-    # an "Unexpected EOF" because the server closes the connection instead.
-    use_tls = settings.SMTP_PORT in _TLS_PORTS
+    params: resend.Emails.SendParams = {
+        "from": settings.EMAIL_FROM,
+        "to": [to_email],
+        "subject": "Xác minh tài khoản Vết Lành",
+        "html": html_body,
+    }
 
     try:
-        await aiosmtplib.send(
-            message,
-            hostname=settings.SMTP_HOST,
-            port=settings.SMTP_PORT,
-            username=settings.SMTP_USER,
-            password=settings.SMTP_PASSWORD,
-            start_tls=use_tls,
-        )
+        await asyncio.to_thread(resend.Emails.send, params)
         logger.info("Verification email sent to %s", to_email)
     except Exception:
         # Log full traceback but do not propagate — email outage must not
