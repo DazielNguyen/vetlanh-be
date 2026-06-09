@@ -6,6 +6,7 @@ from app.schemas.exercise import (
     BreathingPhase,
     ExerciseCategory,
     ExerciseLogCreate,
+    ExerciseLogUpdate,
     ExerciseResponse,
     ExerciseStep,
     MoodFilter,
@@ -254,6 +255,26 @@ async def log_exercise(
     db.add(log)
     await db.flush()
     await db.refresh(log)
+    return log
+
+
+async def update_exercise_log(
+    db: AsyncSession,
+    log_id: int,
+    user_id: int,
+    payload: ExerciseLogUpdate,
+) -> UserExerciseLog | None:
+    result = await db.execute(
+        select(UserExerciseLog).where(
+            UserExerciseLog.id == log_id,
+            UserExerciseLog.user_id == user_id,
+        )
+    )
+    log = result.scalar_one_or_none()
+    if log is None:
+        return None
+    log.post_session_feeling = payload.post_session_feeling
+    await db.flush()
     return log
 
 
