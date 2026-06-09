@@ -5,12 +5,15 @@ from app.core.deps import get_current_user, get_db
 from app.models.user import User
 from app.schemas.exercise import (
     CATEGORY_LABELS,
+    MOOD_FILTER_EMOJIS,
     MOOD_FILTER_LABELS,
     ExerciseCategory,
     ExerciseLogCreate,
     ExerciseLogResponse,
+    ExerciseLogUpdate,
     ExerciseResponse,
     MoodFilter,
+    MoodFilterOption,
 )
 from app.services.exercise import (
     get_exercise,
@@ -18,6 +21,7 @@ from app.services.exercise import (
     get_recommended,
     list_exercises,
     log_exercise,
+    update_exercise_log,
 )
 
 router = APIRouter(prefix="/exercises", tags=["exercises"])
@@ -60,6 +64,20 @@ async def log_completed_exercise(
         raise HTTPException(status_code=404, detail=_NOT_FOUND)
 
 
+@router.patch("/logs/{log_id}", response_model=ExerciseLogResponse)
+async def update_exercise_log_endpoint(
+    log_id: int,
+    payload: ExerciseLogUpdate,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Record post-session feeling after a completed exercise."""
+    log = await update_exercise_log(db, log_id, current_user.id, payload)
+    if log is None:
+        raise HTTPException(status_code=404, detail=_NOT_FOUND)
+    return log
+
+
 @router.get("/logs/history", response_model=list[ExerciseLogResponse])
 async def get_history(
     limit: int = Query(default=20, ge=1, le=100),
@@ -76,10 +94,13 @@ async def list_categories():
     return [{"key": c.value, "label": CATEGORY_LABELS[c]} for c in ExerciseCategory]
 
 
-@router.get("/mood-filters", response_model=list[dict])
+@router.get("/mood-filters", response_model=list[MoodFilterOption])
 async def list_mood_filters():
-    """Return all mood filter options with display labels (public, no auth)."""
-    return [{"key": m.value, "label": MOOD_FILTER_LABELS[m]} for m in MoodFilter]
+    """Return all mood filter options with display labels and emoji (public, no auth)."""
+    return [
+        MoodFilterOption(key=m.value, label=MOOD_FILTER_LABELS[m], emoji=MOOD_FILTER_EMOJIS[m])
+        for m in MoodFilter
+    ]
 
 
 # /{slug} must be registered LAST — static path prefixes above take priority.

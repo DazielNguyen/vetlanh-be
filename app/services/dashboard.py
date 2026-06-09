@@ -1,11 +1,11 @@
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.mood import MoodEntry
 from app.models.user import User
-from app.schemas.dashboard import DailyQuoteResponse, DashboardResponse, MoodSparkline
+from app.schemas.dashboard import DailyQuoteResponse, DashboardResponse, MoodSparkline, StressLevel
 from app.schemas.exercise import MoodFilter
 from app.services.exercise import get_recommended
 
@@ -30,6 +30,28 @@ def get_daily_quote() -> DailyQuoteResponse:
     day_index = datetime.now(tz=timezone.utc).timetuple().tm_yday
     text, author = _QUOTES[day_index % len(_QUOTES)]
     return DailyQuoteResponse(text=text, author=author)
+
+
+def _stress_level(avg_mood: float | None) -> StressLevel | None:
+    if avg_mood is None:
+        return None
+    # mood 1-5: low mood = high stress
+    if avg_mood >= 3.5:
+        return StressLevel.low
+    if avg_mood >= 2.5:
+        return StressLevel.medium
+    return StressLevel.high
+
+
+def _trend_text(current_avg: float | None, prev_avg: float | None) -> str | None:
+    if current_avg is None or prev_avg is None or prev_avg == 0:
+        return None
+    delta_pct = round(abs(current_avg - prev_avg) / prev_avg * 100)
+    if delta_pct < 3:
+        return "ổn định tuần này"
+    if current_avg > prev_avg:
+        return f"tốt hơn ~{delta_pct}% tuần này"
+    return f"xấu hơn ~{delta_pct}% tuần này"
 
 
 _MOOD_TO_FILTER: dict[int, MoodFilter] = {
@@ -71,16 +93,24 @@ def _compute_streak(entries: list[MoodEntry]) -> int:
     return streak
 
 
+def _avg_mood(entries_by_date: dict, end_offset: int, days: int, anchor: date) -> float | None:
+    """Average mood for `days` days ending `end_offset` days before anchor (inclusive)."""
+    values = [
+        entries_by_date[d].mood
+        for i in range(days)
+        if (d := anchor - timedelta(days=end_offset + i)) in entries_by_date
+    ]
+    return sum(values) / len(values) if values else None
+
+
 async def get_dashboard(db: AsyncSession, user: User) -> DashboardResponse:
-    # Use Vietnam local date so check-in state is correct at 23:xx VN time
     today = datetime.now(tz=_VN_TZ).date()
     week_start = today - timedelta(days=6)
-    streak_start = today - timedelta(days=_STREAK_LOOKBACK_DAYS - 1)
+    window_start = today - timedelta(days=_STREAK_LOOKBACK_DAYS - 1)
 
-    # Single query covers both sparkline window (7 days) and full streak lookback
     result = await db.execute(
         select(MoodEntry)
-        .where(MoodEntry.user_id == user.id, MoodEntry.date >= streak_start)
+        .where(MoodEntry.user_id == user.id, MoodEntry.date >= window_start)
         .order_by(MoodEntry.date.desc())
     )
     all_entries: list[MoodEntry] = list(result.scalars().all())
@@ -100,7 +130,6 @@ async def get_dashboard(db: AsyncSession, user: User) -> DashboardResponse:
 
     streak = _compute_streak(all_entries)
 
-    # Use latest mood for exercise recommendations; fall back to "anxious" if no data
     if today_entry:
         mood_filter = _MOOD_TO_FILTER.get(today_entry.mood, MoodFilter.anxious)
     elif all_entries:
@@ -110,11 +139,16 @@ async def get_dashboard(db: AsyncSession, user: User) -> DashboardResponse:
 
     exercises = get_recommended(mood=mood_filter, limit=3)
 
+    current_avg = _avg_mood(by_date, end_offset=0, days=7, anchor=today)
+    prev_avg = _avg_mood(by_date, end_offset=7, days=7, anchor=today)
+
     return DashboardResponse(
         greeting=_greeting(user.display_name),
         checked_in_today=today_entry is not None,
-        today_mood=today_entry,  # type: ignore[arg-type]  # from_attributes handles ORM → schema
+        today_mood=today_entry,  # type: ignore[arg-type]
         streak_days=streak,
         mood_sparkline=sparkline,
         recommended_exercises=exercises,
+        stress_level=_stress_level(current_avg),
+        stress_trend_text=_trend_text(current_avg, prev_avg),
     )

@@ -18,6 +18,7 @@ from app.api.v1 import router as v1_router
 from app.core.config import settings
 from app.core.database import AsyncSessionLocal, engine
 from app.core.rate_limit import limiter
+from app.core.seed import run_seed
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +37,7 @@ async def lifespan(app: FastAPI):
     # via Vercel CLI or a one-off script before deploying.
     if not os.getenv("VERCEL"):
         await asyncio.to_thread(_run_migrations)
+        await run_seed()
     yield
     # dispose() drains the pool and closes all connections.
     # Skipping this causes "Event loop closed" / "unclosed connection" warnings.

@@ -36,6 +36,14 @@ MOOD_FILTER_LABELS: dict[MoodFilter, str] = {
     MoodFilter.angry: "Tức giận",
 }
 
+MOOD_FILTER_EMOJIS: dict[MoodFilter, str] = {
+    MoodFilter.anxious: "😰",
+    MoodFilter.sad: "😢",
+    MoodFilter.cant_sleep: "🌙",
+    MoodFilter.need_energy: "⚡",
+    MoodFilter.angry: "😤",
+}
+
 
 class BreathingPhase(BaseModel):
     label: str
@@ -66,15 +74,33 @@ class ExerciseResponse(BaseModel):
     audio_options_minutes: list[int] | None = None
 
 
+class MoodFilterOption(BaseModel):
+    key: str
+    label: str
+    emoji: str
+
+
 class ExerciseLogCreate(BaseModel):
     exercise_slug: str = Field(min_length=1, max_length=100)
     duration_seconds: int = Field(ge=0, le=7200)
+
+
+class PostSessionFeeling(str, Enum):
+    much_better = "much_better"
+    better = "better"
+    same = "same"
+    worse = "worse"
+
+
+class ExerciseLogUpdate(BaseModel):
+    post_session_feeling: PostSessionFeeling
 
 
 class ExerciseLogResponse(BaseModel):
     id: int
     exercise_slug: str
     duration_seconds: int
+    post_session_feeling: PostSessionFeeling | None = None
     created_at: datetime
 
     model_config = {"from_attributes": True}

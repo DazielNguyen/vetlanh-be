@@ -19,10 +19,11 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    op.create_index("ix_system_errors_status", "system_errors", ["status"])
-    op.create_index("ix_subscriptions_user_id", "subscriptions", ["user_id"])
-    op.create_index("ix_subscriptions_status_granted_at", "subscriptions", ["status", "granted_at"])
-    op.create_index("ix_subscriptions_status_created_at", "subscriptions", ["status", "created_at"])
+    # These indexes may already exist (created by ec8731597c38). IF NOT EXISTS makes this idempotent.
+    op.execute("CREATE INDEX IF NOT EXISTS ix_system_errors_status ON system_errors (status)")
+    op.execute("CREATE INDEX IF NOT EXISTS ix_subscriptions_user_id ON subscriptions (user_id)")
+    op.execute("CREATE INDEX IF NOT EXISTS ix_subscriptions_status_granted_at ON subscriptions (status, granted_at)")
+    op.execute("CREATE INDEX IF NOT EXISTS ix_subscriptions_status_created_at ON subscriptions (status, created_at)")
 
 
 def downgrade() -> None:
