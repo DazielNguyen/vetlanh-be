@@ -12,8 +12,8 @@ from app.services.email import send_payment_notify_email
 
 router = APIRouter(prefix="/subscriptions", tags=["subscriptions"])
 
-# Admin emails extracted from ADMIN_USERS at startup (items containing "@")
-_ADMIN_EMAILS: list[str] = [u for u in settings.ADMIN_USERS.split(",") if "@" in u]
+# Emails to notify when a new payment bill is submitted (separate from access control)
+_ADMIN_EMAILS: list[str] = [e.strip() for e in settings.ADMIN_NOTIFICATION_EMAILS.split(",") if e.strip()]
 
 
 @router.post("/pending", response_model=PendingSubmitResponse, status_code=201)

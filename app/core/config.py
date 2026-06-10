@@ -33,6 +33,9 @@ class Settings(BaseSettings):
     # Comma-separated list of usernames or emails allowed to access admin endpoints.
     ADMIN_USERS: str = ""
 
+    # Comma-separated email(s) to notify when a new payment bill is submitted.
+    ADMIN_NOTIFICATION_EMAILS: str = "duynguyenvananh@gmail.com"
+
     # Directory for storing uploaded files (bill images). Relative to project root.
     UPLOADS_DIR: str = "uploads"
 
