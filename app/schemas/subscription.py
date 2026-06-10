@@ -49,3 +49,7 @@ class PendingSubmitRequest(BaseModel):
 
 class PendingSubmitResponse(BaseModel):
     id: uuid.UUID
+
+
+class PaymentNotifyResponse(BaseModel):
+    id: uuid.UUID

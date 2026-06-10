@@ -33,6 +33,9 @@ class Settings(BaseSettings):
     # Comma-separated list of usernames or emails allowed to access admin endpoints.
     ADMIN_USERS: str = ""
 
+    # Directory for storing uploaded files (bill images). Relative to project root.
+    UPLOADS_DIR: str = "uploads"
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",

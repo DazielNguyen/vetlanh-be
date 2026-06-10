@@ -10,6 +10,7 @@ from alembic.config import Config
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
@@ -91,3 +92,9 @@ async def global_exception_handler(request: Request, exc: Exception) -> JSONResp
 
 app.include_router(hub_router)
 app.include_router(v1_router, prefix="/api/v1")
+
+# Serve uploaded files (bill images) at /uploads — admin views via direct URL.
+# Directory is created on first upload; mount only if it exists to avoid startup errors.
+_uploads_path = Path(settings.UPLOADS_DIR)
+_uploads_path.mkdir(parents=True, exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=str(_uploads_path)), name="uploads")
