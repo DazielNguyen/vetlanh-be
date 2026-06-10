@@ -7,7 +7,9 @@ from pydantic import BaseModel, ConfigDict, Field
 
 class ErrorReportRequest(BaseModel):
     error_type: str = Field(..., max_length=100)
-    route: str = Field(..., max_length=500)
+    # route is optional: the FE auto-reporter may not have a route available
+    # (e.g., errors thrown before navigation or when window.location is absent).
+    route: str | None = Field(default=None, max_length=500)
     severity: Literal["HIGH", "MEDIUM", "LOW"] = "HIGH"
     description: str = Field(..., max_length=2000)
 

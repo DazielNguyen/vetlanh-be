@@ -36,7 +36,10 @@ class SubscriptionActiveRow(BaseModel):
 
 
 class SubscriptionGrantRequest(BaseModel):
-    duration_months: int | None = Field(default=None, ge=1)
+    # ge=1 is intentionally omitted here: the endpoint already rejects values < 1
+    # after resolving the final months (body override OR sub's stored duration).
+    # Allowing 0 / None both mean "use the subscription's own duration_months".
+    duration_months: int | None = Field(default=None)
 
 
 class PendingSubmitRequest(BaseModel):
