@@ -1,12 +1,16 @@
 """File upload utilities — save UploadFile to local disk and return a relative path."""
 
 import asyncio
+import os
 import uuid
 from pathlib import Path
 
 from fastapi import HTTPException, UploadFile
 
 from app.core.config import settings
+
+# On Vercel the project root is read-only; /tmp is the only writable directory.
+_BASE_DIR = Path("/tmp/uploads") if os.getenv("VERCEL") else Path(settings.UPLOADS_DIR)
 
 _MAX_SIZE_BYTES = 10 * 1024 * 1024  # 10 MB
 _ALLOWED_EXTENSIONS = {"jpeg", "jpg", "png", "gif", "webp", "heic", "heif"}
@@ -35,7 +39,7 @@ async def save_upload(file: UploadFile, subfolder: str) -> str:
         raise HTTPException(status_code=422, detail="File exceeds 10 MB limit")
 
     filename = f"{uuid.uuid4()}.{ext}"
-    dest_path = Path(settings.UPLOADS_DIR) / subfolder / filename
+    dest_path = _BASE_DIR / subfolder / filename
 
     await asyncio.to_thread(_write_bytes, dest_path, contents)
 
