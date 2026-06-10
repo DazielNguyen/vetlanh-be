@@ -92,6 +92,27 @@ class PostSessionFeeling(str, Enum):
     worse = "worse"
 
 
+FEELING_LABELS: dict[PostSessionFeeling, str] = {
+    PostSessionFeeling.much_better: "Rất nhẹ",
+    PostSessionFeeling.better: "Nhẹ hơn",
+    PostSessionFeeling.same: "Bình thường",
+    PostSessionFeeling.worse: "Vẫn căng",
+}
+
+FEELING_EMOJIS: dict[PostSessionFeeling, str] = {
+    PostSessionFeeling.much_better: "😌",
+    PostSessionFeeling.better: "😊",
+    PostSessionFeeling.same: "😐",
+    PostSessionFeeling.worse: "😣",
+}
+
+
+class FeelingOption(BaseModel):
+    key: str
+    label: str
+    emoji: str
+
+
 class ExerciseLogUpdate(BaseModel):
     post_session_feeling: PostSessionFeeling
 

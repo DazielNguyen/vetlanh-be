@@ -5,6 +5,8 @@ from app.core.deps import get_current_user, get_db
 from app.models.user import User
 from app.schemas.exercise import (
     CATEGORY_LABELS,
+    FEELING_EMOJIS,
+    FEELING_LABELS,
     MOOD_FILTER_EMOJIS,
     MOOD_FILTER_LABELS,
     ExerciseCategory,
@@ -12,8 +14,10 @@ from app.schemas.exercise import (
     ExerciseLogResponse,
     ExerciseLogUpdate,
     ExerciseResponse,
+    FeelingOption,
     MoodFilter,
     MoodFilterOption,
+    PostSessionFeeling,
 )
 from app.services.exercise import (
     get_exercise,
@@ -100,6 +104,15 @@ async def list_mood_filters():
     return [
         MoodFilterOption(key=m.value, label=MOOD_FILTER_LABELS[m], emoji=MOOD_FILTER_EMOJIS[m])
         for m in MoodFilter
+    ]
+
+
+@router.get("/feeling-options", response_model=list[FeelingOption])
+async def list_feeling_options():
+    """Return all post-session feeling options with display labels and emoji (public, no auth)."""
+    return [
+        FeelingOption(key=f.value, label=FEELING_LABELS[f], emoji=FEELING_EMOJIS[f])
+        for f in PostSessionFeeling
     ]
 
 

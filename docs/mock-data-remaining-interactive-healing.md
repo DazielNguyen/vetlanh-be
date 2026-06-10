@@ -7,7 +7,7 @@ Những phần dưới đây vẫn đang dùng **dữ liệu cứng hoặc local
 
 ---
 
-## 1. Breathing timing — 4-7-8 hardcoded (Phase 1)
+## 1. Breathing timing — 4-7-8 hardcoded (Phase 1) — ✅ BE đã có sẵn, chỉ cần FE đổi cách đọc
 
 **File:** `app/services/exercises/[slug]/page.tsx` — constants `BREATH_INHALE`, `BREATH_HOLD`, `BREATH_EXHALE`
 
@@ -18,23 +18,15 @@ const BREATH_HOLD   = 7;
 const BREATH_EXHALE = 8;
 ```
 
-FE dùng 3 giá trị cố định cho tất cả bài tập breathing. `tense_seconds`/`release_seconds` trong `Exercise` là field của PMR — không dùng cho breathing.
+FE dùng 3 giá trị cố định cho tất cả bài tập breathing thay vì đọc từ API.
 
-**Vấn đề:** Nếu BE muốn config thời gian thở khác nhau theo từng bài (ví dụ bài cho trẻ em dùng 3-5-6 thay vì 4-7-8), FE không đọc được.
+**Kết luận (2026-06-10):** BE **không cần thêm field mới**. `ExerciseResponse` đã có sẵn `phases: { label: string; seconds: number }[]` (xem `app/schemas/exercise.py` `BreathingPhase`, và dữ liệu trong `app/services/exercise.py`), tổng quát hơn đề xuất 3-field cố định vì hỗ trợ cả số lượng phase khác nhau:
 
-**Cần BE xác nhận một trong hai hướng:**
+- `box-breathing`: 4 phase (Hít vào 4 / Giữ 4 / Thở ra 4 / Giữ 4)
+- `breathing-4-7-8`: 3 phase (Hít vào 4 / Giữ 7 / Thở ra 8)
+- `coherent-breathing`: 2 phase (Hít vào 5 / Thở ra 5)
 
-- **Hướng A — Enum cố định:** 4-7-8 là spec vĩnh viễn, không cần thay đổi per-exercise. FE giữ nguyên constants.
-
-- **Hướng B — Config per-exercise:** Thêm 3 field vào `Exercise` model:
-  ```json
-  {
-    "inhale_seconds": 4,
-    "hold_seconds": 7,
-    "exhale_seconds": 8
-  }
-  ```
-  FE sẽ đọc từ `exercise.inhale_seconds ?? 4` v.v.
+**Việc cần làm (FE only):** thay vì dùng `BREATH_INHALE/HOLD/EXHALE`, loop qua `exercise.phases` — mỗi phase có `label` để hiển thị và `seconds` để chạy timer. Không cần PATCH/migration BE nào.
 
 ---
 
@@ -74,7 +66,7 @@ Option 3 — **Giữ localStorage-only** (tạm thời) và chấp nhận client
 
 ---
 
-## 3. Feeling options (FEELINGS array) — hardcoded FE (Phase 3)
+## 3. Feeling options (FEELINGS array) — hardcoded FE (Phase 3) — ✅ BE đã có endpoint
 
 **File:** `app/services/exercises/[slug]/page.tsx`
 
@@ -88,11 +80,23 @@ const FEELINGS = [
 ];
 ```
 
-4 lựa chọn cố định, không đến từ API. Nếu BE muốn thêm option hoặc thay label thì cần sửa FE code.
+**Kết luận (2026-06-10):** BE đã thêm endpoint động:
 
-**Cần BE xác nhận:** 4-value enum này có phải spec vĩnh viễn không, hay cần API `GET /api/v1/exercises/feeling-options` để FE đọc động?
+```
+GET /api/v1/exercises/feeling-options   (public, no auth)
+```
 
-> **Ghi chú:** Đây là phần có rủi ro thấp nhất — 4 cảm xúc này khá ổn định theo domain. Nếu BE đồng ý enum cố định thì không cần làm thêm.
+Response:
+```json
+[
+  { "key": "much_better", "label": "Rất nhẹ", "emoji": "😌" },
+  { "key": "better",      "label": "Nhẹ hơn", "emoji": "😊" },
+  { "key": "same",        "label": "Bình thường", "emoji": "😐" },
+  { "key": "worse",       "label": "Vẫn căng", "emoji": "😣" }
+]
+```
+
+**Việc cần làm (FE):** thay `FEELINGS` hardcode bằng fetch từ endpoint trên (`key` ↔ `value` cũ). Khi gửi feeling lên `PATCH /api/v1/exercises/logs/{log_id}` thì dùng `key`.
 
 ---
 
@@ -169,11 +173,13 @@ Hoặc thêm `stress_level: "low" | "medium" | "high"` để FE tự map sang la
 
 | # | Phần | File | Trạng thái | Việc cần làm |
 |---|------|------|-----------|--------------|
-| 1 | Breathing timing (4-7-8) | `[slug]/page.tsx` | Hardcode FE | BE confirm enum cố định hoặc thêm field per-exercise |
-| 2 | After-session feeling | `[slug]/page.tsx` | localStorage-only | BE thêm endpoint POST feeling, hoặc confirm client-only |
-| 3 | Feeling options array | `[slug]/page.tsx` | Hardcode FE | BE confirm 4-value enum vĩnh viễn |
-| 4 | Emoji mood map | `ExerciseList.tsx` | Hardcode FE | BE confirm 5 key cố định hoặc thêm `emoji` field vào mood-filters API |
-| 5 | StressChart label + trend | `DashboardContent.tsx` | Hardcode FE | BE thêm `stress_level_label` + `stress_trend_text` vào dashboard response |
+| 1 | Breathing timing (4-7-8) | `[slug]/page.tsx` | ✅ BE đã có `phases[]` | FE đổi sang đọc `exercise.phases` thay vì hardcode |
+| 2 | After-session feeling | `[slug]/page.tsx` | ✅ BE đã có `post_session_feeling` | FE gửi PATCH log với `post_session_feeling` |
+| 3 | Feeling options array | `[slug]/page.tsx` | ✅ BE đã có endpoint | FE đọc `GET /exercises/feeling-options` thay vì hardcode `FEELINGS` |
+| 4 | Emoji mood map | `ExerciseList.tsx` | ✅ BE đã có `emoji` trong mood-filters | FE đọc `emoji` từ `GET /exercises/mood-filters` |
+| 5 | StressChart label + trend | `DashboardContent.tsx` | ✅ BE đã có `stress_level` + `stress_trend_text` | FE đọc 2 field mới từ `GET /dashboard` |
+
+**Tất cả 5 mục đã có dữ liệu BE — toàn bộ việc còn lại nằm ở phía FE.**
 
 **Đã tích hợp thật (không cần làm thêm):**
 
@@ -182,4 +188,7 @@ Hoặc thêm `stress_level: "low" | "medium" | "high"` để FE tự map sang la
 | `GET /api/v1/exercises/recommended` | `QuickReliefCard` — 3 tiles dashboard |
 | `GET /api/v1/exercises/categories` | `ExerciseList` — category filter pills |
 | `GET /api/v1/exercises/mood-filters` | `ExerciseList` — mood filter buttons |
+| `GET /api/v1/exercises/feeling-options` | `[slug]/page.tsx` — post-session feeling picker |
 | `POST /api/v1/exercises/log` | Tất cả 3 session types sau khi hoàn thành |
+| `PATCH /api/v1/exercises/logs/{log_id}` | Cập nhật `post_session_feeling` sau khi chọn cảm xúc |
+| `GET /api/v1/dashboard` | Dashboard — `stress_level`, `stress_trend_text`, `mood_sparkline` |
