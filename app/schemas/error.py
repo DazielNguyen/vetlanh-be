@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class ErrorReportRequest(BaseModel):
@@ -11,7 +11,15 @@ class ErrorReportRequest(BaseModel):
     # (e.g., errors thrown before navigation or when window.location is absent).
     route: str | None = Field(default=None, max_length=500)
     severity: Literal["HIGH", "MEDIUM", "LOW"] = "HIGH"
-    description: str = Field(..., max_length=2000)
+    # DB column is Text (unlimited); 5000 chars accommodates full stack traces.
+    description: str = Field(..., max_length=5000)
+
+    @field_validator("severity", mode="before")
+    @classmethod
+    def normalize_severity(cls, v: object) -> object:
+        if isinstance(v, str):
+            return v.upper()
+        return v
 
 
 class ErrorReportResponse(BaseModel):
