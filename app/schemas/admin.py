@@ -21,6 +21,8 @@ class AdminUserRow(BaseModel):
     subscriptionExpiry: datetime | None
     joinDate: datetime
     lastActiveAt: datetime | None
+    isVerified: bool
+    isActive: bool
 
 
 class AdminUserListResponse(BaseModel):
