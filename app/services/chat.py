@@ -11,6 +11,7 @@ from app.core.config import settings
 from app.models.conversation import Conversation, Message
 from app.schemas.chat import ConversationListItem, ExerciseCard, ExerciseStep
 from app.services.crisis import CrisisLevel, detect_crisis_level
+from app.services.emotion import analyze_emotion, emotion_to_sentiment
 from app.services.mood import update_daily_mood
 
 _client = AsyncGroq(api_key=settings.GROQ_API_KEY)
@@ -207,26 +208,23 @@ def _pick_exercise_card(assistant_text: str) -> ExerciseCard | None:
     return None
 
 
-async def _analyze_sentiment(content: str) -> str:
-    """Classify user message sentiment via a lightweight Groq chat completion.
+async def _analyze_sentiment(content: str) -> tuple[str, dict]:
+    """Analyse emotion + depression risk using the local Vietnamese emotion model.
 
-    Uses a single-word response to minimize tokens and latency.
-    Returns one of: "positive", "neutral", "negative".
+    Returns (sentiment_bucket, emotion_payload) where:
+      sentiment_bucket — "positive" | "neutral" | "negative" (legacy field, kept for compatibility)
+      emotion_payload  — full emotion analysis dict to include in the done event
     """
-    prompt = (
-        "Classify the emotional sentiment of the Vietnamese text below. "
-        "Reply with exactly one word: positive, neutral, or negative.\n\n"
-        f"{content}"
-    )
-    response = await _client.chat.completions.create(
-        model=_GROQ_MODEL,
-        messages=[{"role": "user", "content": prompt}],
-        max_tokens=10,
-    )
-    raw = response.choices[0].message.content.strip().lower()
-    if raw in ("positive", "neutral", "negative"):
-        return raw
-    return "neutral"
+    result = await analyze_emotion(content)
+    emotion_label = result["emotion"]["label"]
+    sentiment = emotion_to_sentiment(emotion_label)
+    payload = {
+        "emotion": emotion_label,
+        "emotion_confidence": result["emotion"]["confidence"],
+        "depression_risk": result["depression_risk"]["level"],
+        "phq_estimate": result["depression_risk"]["phq_estimate"],
+    }
+    return sentiment, payload
 
 
 async def _check_negative_streak(db: AsyncSession, conversation_id: int) -> bool:
@@ -429,18 +427,19 @@ async def stream_chat(
     await db.flush()
     await db.refresh(assistant_msg)
 
-    # Analyze sentiment post-stream; degrade gracefully on failure so messages are never lost.
+    # Analyse emotion post-stream; degrade gracefully so messages are never lost on failure.
     sentiment: str | None = None
+    emotion_payload: dict = {}
     suggest_checkin = False
     try:
-        sentiment = await _analyze_sentiment(user_content)
+        sentiment, emotion_payload = await _analyze_sentiment(user_content)
         user_msg.sentiment = sentiment
         # Flush so _check_negative_streak sees the current message's sentiment in its query
         await db.flush()
         suggest_checkin = await _check_negative_streak(db, conversation_id)
         await update_daily_mood(db, conv.user_id, sentiment)
     except Exception as e:
-        logger.error("Sentiment analysis failed for message %d: %s", user_msg.id, e)
+        logger.error("Emotion analysis failed for message %d: %s", user_msg.id, e)
 
     exercise_card = _pick_exercise_card(assistant_content)
 
@@ -453,6 +452,7 @@ async def stream_chat(
         "sentiment": sentiment,
         "suggest_checkin": suggest_checkin,
         "crisis_level": int(crisis_level),
+        **emotion_payload,
     }
     yield f"data: {json.dumps(done_payload)}\n\n"
 

@@ -54,3 +54,11 @@ class ExerciseCard(BaseModel):
     title: str
     description: str
     steps: list[ExerciseStep]
+
+
+class EmotionAnalysis(BaseModel):
+    emotion: str
+    emotion_confidence: float
+    depression_risk: str           # none | mild | moderate | severe
+    phq_estimate: float            # 0–27 PHQ-9 equivalent
+    signals: list[str] = []
