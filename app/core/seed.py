@@ -1,8 +1,7 @@
 """
-Dev seed — creates default accounts on first startup if they don't exist.
-Idempotent: safe to run on every boot (skips if already present).
+Dev seed — runs on startup, idempotent (skips rows that already exist).
 
-Accounts created:
+Users:
   admin  username=duy1       password=Admin1234!   (in ADMIN_USERS whitelist)
   user   username=user_demo  password=User1234!
 """

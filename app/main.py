@@ -100,8 +100,3 @@ if not os.getenv("VERCEL"):
     _uploads_path.mkdir(parents=True, exist_ok=True)
     app.mount("/uploads", StaticFiles(directory=str(_uploads_path)), name="uploads")
 
-    _sounds_path = Path(settings.SOUNDS_DIR)
-    _sounds_path.mkdir(parents=True, exist_ok=True)
-    if not any(_sounds_path.iterdir()):
-        logger.warning("SOUNDS_DIR '%s' is empty — audio requests will return 404", _sounds_path)
-    app.mount("/media/sounds", StaticFiles(directory=str(_sounds_path)), name="sounds")
