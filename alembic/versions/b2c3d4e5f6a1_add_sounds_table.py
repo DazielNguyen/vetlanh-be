@@ -1,7 +1,7 @@
 """add sounds table
 
-Revision ID: a1b2c3d4e5f6
-Revises: f1a2b3c4d5e6
+Revision ID: b2c3d4e5f6a1
+Revises: a1b2c3d4e5f6
 Create Date: 2026-06-11 00:00:00.000000
 
 """
@@ -10,8 +10,8 @@ from __future__ import annotations
 from alembic import op
 import sqlalchemy as sa
 
-revision = "a1b2c3d4e5f6"
-down_revision = "f1a2b3c4d5e6"
+revision = "b2c3d4e5f6a1"
+down_revision = "c4d5e6f7a8b9"
 branch_labels = None
 depends_on = None
 
