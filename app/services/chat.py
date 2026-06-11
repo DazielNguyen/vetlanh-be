@@ -17,8 +17,17 @@ _client = AsyncGroq(api_key=settings.GROQ_API_KEY)
 
 logger = logging.getLogger(__name__)
 
-_SYSTEM_PROMPT = """Bạn là Vet, một người bạn đồng hành thấu cảm và ấm áp của ứng dụng VetLanh.
-Nhiệm vụ của bạn là lắng nghe người dùng không phán xét, giúp họ cảm thấy được thấu hiểu và nhẹ lòng hơn.
+_SYSTEM_PROMPT = """Bạn là Vet, người bạn đồng hành thấu cảm và ấm áp của ứng dụng Vết Lành.
+Nhiệm vụ của bạn: lắng nghe không phán xét, giúp người dùng cảm thấy được thấu hiểu và dần chữa lành.
+
+Phạm vi trả lời — CHỈ hỗ trợ các chủ đề sau:
+- Cảm xúc và tâm trạng: lo âu, buồn, tức giận, cô đơn, kiệt sức, mất ngủ, trống rỗng
+- Sức khỏe tinh thần và chữa lành: tự chăm sóc bản thân, vượt qua khó khăn, tìm lại bình an
+- Kỹ thuật thở, chánh niệm, thiền định, thư giãn
+- Mối quan hệ và các vấn đề tâm lý trong cuộc sống hàng ngày
+- Lòng tự trọng, tự thương, chấp nhận bản thân
+Nếu người dùng hỏi về chủ đề ngoài phạm vi trên (công nghệ, chính trị, ẩm thực, thể thao, học tập, công việc kỹ thuật, v.v.),
+trả lời nhẹ nhàng: "Mình chỉ có thể đồng hành cùng bạn trong hành trình chữa lành và sức khỏe tinh thần thôi nhé. Bạn đang cảm thấy thế nào hôm nay?"
 
 Quy tắc quan trọng:
 - Luôn dùng tiếng Việt
@@ -35,10 +44,24 @@ Kỹ thuật CBT (Cognitive Behavioral Therapy):
 - Dùng câu hỏi Socratic: "Điều gì khiến bạn nghĩ vậy?", "Có lúc nào khác bạn cảm thấy khác không?"
 - Không áp đặt — luôn hỏi trước khi dẫn dắt reframe
 
-Gợi ý bài tập thở:
-- Khi người dùng thể hiện lo âu, căng thẳng, tim đập nhanh, khó thở — gợi ý bài tập thở
-- Dùng câu: "Mình có một bài tập thở ngắn có thể giúp bạn bình tĩnh lại ngay bây giờ, bạn có muốn thử không?"
-- Sau khi gợi ý xong, tiếp tục hội thoại bình thường"""
+Gợi ý bài tập từ Vết Lành theo tâm trạng:
+Luôn hỏi trước: "Mình có một bài tập [tên bài tập] từ Vết Lành có thể giúp bạn lúc này, bạn có muốn thử không?"
+Sau khi người dùng đồng ý, dùng ĐÚNG TÊN bài tập như liệt kê dưới và tiếp tục hội thoại bình thường.
+
+Khi người dùng lo âu, căng thẳng, tim đập nhanh, khó thở:
+→ Gợi ý "thở hộp" (box breathing 4-4-4-4) hoặc "grounding 5-4-3-2-1"
+
+Khi người dùng buồn, chán nản, thiếu năng lượng, trống rỗng, cô đơn:
+→ Gợi ý "coherent breathing" (thở đều 5 giây) hoặc "loving-kindness"
+
+Khi người dùng tức giận, bực bội, ức chế không giải tỏa được:
+→ Gợi ý "thư giãn cơ tuần tiến" (PMR) hoặc "thở hộp"
+
+Khi người dùng mất ngủ, khó vào giấc, trằn trọc ban đêm:
+→ Gợi ý "thở 4-7-8" (kỹ thuật thở trước khi ngủ)
+
+Khi người dùng suy nghĩ quá nhiều, tâm trí bận rộn, không tập trung:
+→ Gợi ý "body scan" hoặc "thiền hơi thở" """
 
 # Limit context window to last 20 messages to control token usage
 _MAX_HISTORY = 20
@@ -46,31 +69,120 @@ _MAX_HISTORY = 20
 # Consecutive negative user messages before suggesting a check-in
 _NEGATIVE_STREAK_THRESHOLD = 5
 
-# Keywords in assistant response that indicate a breathing exercise was suggested
-_EXERCISE_TRIGGER_KEYWORDS = [
-    "bài tập thở",
-    "hít thở",
-    "thở hộp",
-    "thở 4",
-    "hít vào",
-    "thở ra",
+# (keywords_in_offer_sentence, exercise_id) — longer/more specific phrases come first to avoid
+# early-exit false positives when the AI mentions multiple exercises in one response.
+_EXERCISE_KEYWORD_MAP: list[tuple[list[str], str]] = [
+    (["thở 4-7-8"], "breathing-4-7-8"),
+    (["thở hộp", "box breathing", "thở 4-4-4-4"], "box-breathing"),
+    (["coherent breathing", "thở đều 5 giây"], "coherent-breathing"),
+    (["grounding 5-4-3-2-1"], "grounding-54321"),
+    (["loving-kindness", "nuôi dưỡng lòng từ bi"], "meditation-loving-kindness"),
+    (["thư giãn cơ tuần tiến", "pmr"], "pmr-7-groups"),
+    (["body scan", "quét toàn thân"], "meditation-body-scan"),
+    (["thiền hơi thở"], "meditation-breath"),
 ]
+
+# Phrases that indicate the AI is actively offering an exercise (not just mentioning one in passing)
+_EXERCISE_OFFER_SIGNALS = ["bài tập", "muốn thử", "vết lành"]
 
 # Llama 3.2 11B — no Anthropic approval needed; switch to Claude when AWS unlocks it
 _GROQ_MODEL = "llama-3.3-70b-versatile"
 
-_BOX_BREATHING = ExerciseCard(
-    id="box-breathing",
-    title="Thở Hộp (Box Breathing)",
-    description="Kỹ thuật thở 4-4-4-4 giúp hệ thần kinh bình tĩnh lại trong 2 phút.",
-    steps=[
-        ExerciseStep(order=1, instruction="Hít vào từ từ qua mũi", duration_seconds=4),
-        ExerciseStep(order=2, instruction="Giữ hơi thở", duration_seconds=4),
-        ExerciseStep(order=3, instruction="Thở ra từ từ qua miệng", duration_seconds=4),
-        ExerciseStep(order=4, instruction="Giữ trống phổi", duration_seconds=4),
-        ExerciseStep(order=5, instruction="Lặp lại 4 lần", duration_seconds=None),
-    ],
-)
+_EXERCISE_CARDS: dict[str, ExerciseCard] = {
+    "box-breathing": ExerciseCard(
+        id="box-breathing",
+        title="Thở Hộp (Box Breathing)",
+        description="Kỹ thuật thở 4-4-4-4 giúp hệ thần kinh bình tĩnh lại trong 2 phút.",
+        steps=[
+            ExerciseStep(order=1, instruction="Hít vào từ từ qua mũi", duration_seconds=4),
+            ExerciseStep(order=2, instruction="Giữ hơi thở", duration_seconds=4),
+            ExerciseStep(order=3, instruction="Thở ra từ từ qua miệng", duration_seconds=4),
+            ExerciseStep(order=4, instruction="Giữ trống phổi", duration_seconds=4),
+            ExerciseStep(order=5, instruction="Lặp lại 4 lần", duration_seconds=None),
+        ],
+    ),
+    "breathing-4-7-8": ExerciseCard(
+        id="breathing-4-7-8",
+        title="Thở 4-7-8",
+        description="Kỹ thuật thở kích hoạt thư giãn tự nhiên, lý tưởng trước khi ngủ.",
+        steps=[
+            ExerciseStep(order=1, instruction="Hít vào từ từ qua mũi", duration_seconds=4),
+            ExerciseStep(order=2, instruction="Giữ hơi thở", duration_seconds=7),
+            ExerciseStep(order=3, instruction="Thở ra mạnh qua miệng", duration_seconds=8),
+            ExerciseStep(order=4, instruction="Lặp lại 4 lần", duration_seconds=None),
+        ],
+    ),
+    "coherent-breathing": ExerciseCard(
+        id="coherent-breathing",
+        title="Coherent Breathing",
+        description="Thở đều 5 giây vào – 5 giây ra, đồng bộ hệ tim mạch và thần kinh.",
+        steps=[
+            ExerciseStep(order=1, instruction="Hít vào từ từ", duration_seconds=5),
+            ExerciseStep(order=2, instruction="Thở ra từ từ", duration_seconds=5),
+            ExerciseStep(order=3, instruction="Lặp lại trong 5 phút", duration_seconds=None),
+        ],
+    ),
+    "grounding-54321": ExerciseCard(
+        id="grounding-54321",
+        title="Grounding 5-4-3-2-1",
+        description="Kỹ thuật đưa bản thân trở về hiện tại bằng 5 giác quan.",
+        steps=[
+            ExerciseStep(order=1, instruction="Nhìn xung quanh — kể 5 thứ bạn nhìn thấy", duration_seconds=None),
+            ExerciseStep(order=2, instruction="Chạm vào đồ vật — kể 4 thứ bạn cảm nhận được", duration_seconds=None),
+            ExerciseStep(order=3, instruction="Lắng nghe — kể 3 âm thanh bạn đang nghe", duration_seconds=None),
+            ExerciseStep(order=4, instruction="Ngửi — kể 2 mùi (hoặc mùi yêu thích)", duration_seconds=None),
+            ExerciseStep(order=5, instruction="Nếm — kể 1 thứ bạn cảm nhận được", duration_seconds=None),
+        ],
+    ),
+    "meditation-loving-kindness": ExerciseCard(
+        id="meditation-loving-kindness",
+        title="Loving-Kindness",
+        description="Nuôi dưỡng lòng từ bi với bản thân và người xung quanh.",
+        steps=[
+            ExerciseStep(order=1, instruction="Nhắm mắt, hít thở sâu 3 lần", duration_seconds=30),
+            ExerciseStep(order=2, instruction="Thầm nói: 'Mong tôi được hạnh phúc. Mong tôi được bình an.'", duration_seconds=60),
+            ExerciseStep(order=3, instruction="Nghĩ đến người thân yêu và gửi những lời đó cho họ", duration_seconds=60),
+            ExerciseStep(order=4, instruction="Mở rộng tình thương đến tất cả mọi người xung quanh", duration_seconds=60),
+        ],
+    ),
+    "pmr-7-groups": ExerciseCard(
+        id="pmr-7-groups",
+        title="Thư Giãn Cơ Tuần Tiến (PMR)",
+        description="Căng và thả lỏng từng nhóm cơ để giải phóng căng thẳng tích tụ trong cơ thể.",
+        steps=[
+            ExerciseStep(order=1, instruction="Nắm chặt hai nắm tay — giữ 7 giây rồi thả lỏng hoàn toàn", duration_seconds=37),
+            ExerciseStep(order=2, instruction="Gập cánh tay lên — căng bắp tay 7 giây rồi thả xuống", duration_seconds=37),
+            ExerciseStep(order=3, instruction="Nhún vai lên sát tai — căng 7 giây rồi thả", duration_seconds=37),
+            ExerciseStep(order=4, instruction="Nhăn mặt — giữ 7 giây rồi thả lỏng", duration_seconds=37),
+            ExerciseStep(order=5, instruction="Hít sâu căng bụng — giữ 7 giây rồi thở ra thả lỏng", duration_seconds=37),
+            ExerciseStep(order=6, instruction="Ép chặt hai đùi — căng 7 giây rồi thả lỏng", duration_seconds=37),
+            ExerciseStep(order=7, instruction="Duỗi bàn chân, uốn ngón chân xuống — giữ 7 giây rồi thả", duration_seconds=37),
+        ],
+    ),
+    "meditation-body-scan": ExerciseCard(
+        id="meditation-body-scan",
+        title="Body Scan",
+        description="Quét toàn thân để nhận biết và thả lỏng từng vùng căng thẳng.",
+        steps=[
+            ExerciseStep(order=1, instruction="Nằm hoặc ngồi thoải mái, nhắm mắt", duration_seconds=30),
+            ExerciseStep(order=2, instruction="Chú ý đến bàn chân — thả lỏng từng ngón chân", duration_seconds=60),
+            ExerciseStep(order=3, instruction="Di chuyển sự chú ý lên chân, đùi, bụng — thả lỏng từng phần", duration_seconds=90),
+            ExerciseStep(order=4, instruction="Tiếp tục lên ngực, vai, cổ, đầu — thở sâu và thả lỏng", duration_seconds=90),
+            ExerciseStep(order=5, instruction="Ở lại với cảm giác thư thái toàn thân trong vài nhịp thở", duration_seconds=60),
+        ],
+    ),
+    "meditation-breath": ExerciseCard(
+        id="meditation-breath",
+        title="Thiền Hơi Thở",
+        description="Tập trung vào hơi thở để làm yên tâm trí đang bận rộn.",
+        steps=[
+            ExerciseStep(order=1, instruction="Ngồi thoải mái, nhắm mắt, đặt tay lên đùi", duration_seconds=30),
+            ExerciseStep(order=2, instruction="Chú ý vào cảm giác hơi thở ra vào ở mũi hoặc bụng", duration_seconds=60),
+            ExerciseStep(order=3, instruction="Khi tâm trí xao nhãng, nhẹ nhàng đưa sự chú ý trở lại hơi thở", duration_seconds=None),
+            ExerciseStep(order=4, instruction="Tiếp tục trong 5–10 phút, không phán xét bản thân", duration_seconds=None),
+        ],
+    ),
+}
 
 
 def _build_converse_messages(history: list[Message]) -> list[dict]:
@@ -82,10 +194,16 @@ def _build_converse_messages(history: list[Message]) -> list[dict]:
 
 
 def _pick_exercise_card(assistant_text: str) -> ExerciseCard | None:
-    """Return an exercise card when the assistant response mentions a breathing exercise."""
+    """Return the exercise card for the exercise the assistant offered in this response.
+
+    Searches lines that contain an offer signal first; falls back to the full text.
+    """
     lower = assistant_text.lower()
-    if any(kw in lower for kw in _EXERCISE_TRIGGER_KEYWORDS):
-        return _BOX_BREATHING
+    offer_lines = [ln for ln in lower.splitlines() if any(sig in ln for sig in _EXERCISE_OFFER_SIGNALS)]
+    search_text = " ".join(offer_lines) if offer_lines else lower
+    for keywords, exercise_id in _EXERCISE_KEYWORD_MAP:
+        if any(kw in search_text for kw in keywords):
+            return _EXERCISE_CARDS[exercise_id]
     return None
 
 
@@ -341,10 +459,10 @@ async def stream_chat(
 
 _QUICK_PROMPTS: list[dict] = [
     {"id": "qp-1", "text": "Tôi đang cảm thấy lo lắng và không biết phải làm gì"},
-    {"id": "qp-2", "text": "Gợi ý cho tôi một bài tập thở để thư giãn"},
-    {"id": "qp-3", "text": "Hôm nay tôi cảm thấy buồn, bạn có thể lắng nghe không?"},
-    {"id": "qp-4", "text": "Làm thế nào để cải thiện giấc ngủ của tôi?"},
-    {"id": "qp-5", "text": "Tôi muốn thực hành chánh niệm, bắt đầu từ đâu?"},
+    {"id": "qp-2", "text": "Hôm nay tôi rất buồn và trống rỗng, bạn có thể lắng nghe không?"},
+    {"id": "qp-3", "text": "Tôi đang tức giận và cần giải tỏa"},
+    {"id": "qp-4", "text": "Tôi bị mất ngủ, giúp tôi thư giãn trước khi ngủ"},
+    {"id": "qp-5", "text": "Đầu óc tôi đang rất bận rộn, tôi muốn tập chánh niệm"},
 ]
 
 
