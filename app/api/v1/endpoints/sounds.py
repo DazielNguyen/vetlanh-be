@@ -1,11 +1,15 @@
+import time
+
+import cloudinary.utils
 from fastapi import APIRouter, Depends, HTTPException, UploadFile
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
 from app.core.deps import get_db, require_admin
 from app.core.upload import save_audio_upload
 from app.models.sound import Sound
-from app.schemas.sounds import SoundCreate, SoundResponse, SoundUpdate
+from app.schemas.sounds import CloudinaryUploadParams, SoundCreate, SoundResponse, SoundUpdate
 
 router = APIRouter(prefix="/sounds", tags=["sounds"])
 
@@ -45,6 +49,31 @@ async def create_sound(
     await db.flush()
     await db.refresh(sound)
     return sound
+
+
+@router.post("/{sound_id}/upload-url", response_model=CloudinaryUploadParams)
+async def get_upload_url(
+    sound_id: str,
+    db: AsyncSession = Depends(get_db),
+    _=Depends(require_admin),
+):
+    """Return Cloudinary signed upload params so the frontend can upload directly."""
+    sound = await db.get(Sound, sound_id)
+    if sound is None:
+        raise HTTPException(status_code=404, detail="Sound not found")
+    timestamp = int(time.time())
+    folder = "vetlanh/sounds"
+    signature = cloudinary.utils.api_sign_request(
+        {"folder": folder, "timestamp": timestamp},
+        settings.CLOUDINARY_API_SECRET,
+    )
+    return CloudinaryUploadParams(
+        upload_url=f"https://api.cloudinary.com/v1_1/{settings.CLOUDINARY_CLOUD_NAME}/video/upload",
+        api_key=settings.CLOUDINARY_API_KEY,
+        timestamp=timestamp,
+        signature=signature,
+        folder=folder,
+    )
 
 
 @router.post("/{sound_id}/upload", response_model=SoundResponse)

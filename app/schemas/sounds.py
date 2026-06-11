@@ -1,6 +1,14 @@
 from pydantic import BaseModel
 
 
+class CloudinaryUploadParams(BaseModel):
+    upload_url: str
+    api_key: str
+    timestamp: int
+    signature: str
+    folder: str
+
+
 class SoundResponse(BaseModel):
     id: str
     title: str
