@@ -26,6 +26,10 @@ class Settings(BaseSettings):
     GOOGLE_REDIRECT_URI: str = "http://localhost:8000/api/v1/auth/google/callback"
     FRONTEND_URL: str = "http://localhost:5173"
 
+    # Single origin used to build frontend links in emails (verification, password reset).
+    # Set to the canonical public URL, e.g. https://vetlanh.io.vn
+    FRONTEND_BASE_URL: str = "http://localhost:3000"
+
     # Extra comma-separated origins to allow in addition to FRONTEND_URL and localhost defaults.
     # Example: CORS_ORIGINS=https://vetlanh.io.vn,https://www.vetlanh.io.vn
     CORS_ORIGINS: str = ""

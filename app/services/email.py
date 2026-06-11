@@ -83,7 +83,7 @@ async def send_verification_email(to_email: str, token: str) -> None:
     Logs the error and returns silently on failure — the user can request a
     resend; we should not crash the registration flow over an email outage.
     """
-    verify_url = f"{settings.APP_BASE_URL}/api/v1/auth/verify?token={quote(token, safe='')}"
+    verify_url = f"{settings.FRONTEND_BASE_URL}/verify?token={quote(token, safe='')}"
 
     html_body = f"""
     <html>
