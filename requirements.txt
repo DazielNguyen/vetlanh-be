@@ -1,5 +1,6 @@
 resend==2.30.1
 groq
+cloudinary==1.44.2
 slowapi==0.1.9
 alembic==1.18.4
 annotated-doc==0.0.4

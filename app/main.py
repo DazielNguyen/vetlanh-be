@@ -34,11 +34,8 @@ def _run_migrations() -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Skip auto-migration on Vercel serverless — run `alembic upgrade head` manually
-    # via Vercel CLI or a one-off script before deploying.
-    if not os.getenv("VERCEL"):
-        await asyncio.to_thread(_run_migrations)
-        await run_seed()
+    await asyncio.to_thread(_run_migrations)
+    await run_seed()
     yield
     # dispose() drains the pool and closes all connections.
     # Skipping this causes "Event loop closed" / "unclosed connection" warnings.

@@ -1,46 +1,56 @@
-"""File upload utilities — save UploadFile to local disk and return a relative path."""
+"""File upload utilities — upload to Cloudinary and return the secure URL."""
 
 import asyncio
-import os
-import uuid
-from pathlib import Path
 
+import cloudinary
+import cloudinary.uploader
 from fastapi import HTTPException, UploadFile
 
 from app.core.config import settings
 
-# On Vercel the project root is read-only; /tmp is the only writable directory.
-_BASE_DIR = Path("/tmp/uploads") if os.getenv("VERCEL") else Path(settings.UPLOADS_DIR)
+cloudinary.config(
+    cloud_name=settings.CLOUDINARY_CLOUD_NAME,
+    api_key=settings.CLOUDINARY_API_KEY,
+    api_secret=settings.CLOUDINARY_API_SECRET,
+    secure=True,
+)
 
-_MAX_SIZE_BYTES = 10 * 1024 * 1024  # 10 MB
-_ALLOWED_EXTENSIONS = {"jpeg", "jpg", "png", "gif", "webp", "heic", "heif"}
+_MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024  # 10 MB
+_MAX_AUDIO_SIZE_BYTES = 50 * 1024 * 1024  # 50 MB
 
 
-def _write_bytes(path: Path, data: bytes) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_bytes(data)
+def _upload_to_cloudinary(data: bytes, folder: str, resource_type: str) -> dict:
+    return cloudinary.uploader.upload(data, folder=folder, resource_type=resource_type)
 
 
-async def save_upload(file: UploadFile, subfolder: str) -> str:
-    """Save an UploadFile to UPLOADS_DIR/subfolder and return the relative path.
-
-    Raises 422 if content_type is not image/* or file exceeds 10 MB.
-    """
-    content_type = file.content_type or ""
-    if not content_type.startswith("image/"):
-        raise HTTPException(status_code=422, detail="Only image files are accepted")
-
-    ext = content_type.split("/")[-1].lower()
-    if ext not in _ALLOWED_EXTENSIONS:
-        ext = "jpg"
-
+async def _save_upload(
+    file: UploadFile,
+    folder: str,
+    *,
+    mime_prefix: str,
+    max_bytes: int,
+    resource_type: str,
+    label: str,
+) -> dict:
+    if not (file.content_type or "").startswith(mime_prefix):
+        raise HTTPException(status_code=422, detail=f"Only {label} files are accepted")
     contents = await file.read()
-    if len(contents) > _MAX_SIZE_BYTES:
-        raise HTTPException(status_code=422, detail="File exceeds 10 MB limit")
+    if len(contents) > max_bytes:
+        raise HTTPException(status_code=422, detail=f"File exceeds {max_bytes // (1024 * 1024)} MB limit")
+    return await asyncio.to_thread(_upload_to_cloudinary, contents, folder, resource_type)
 
-    filename = f"{uuid.uuid4()}.{ext}"
-    dest_path = _BASE_DIR / subfolder / filename
 
-    await asyncio.to_thread(_write_bytes, dest_path, contents)
+async def save_upload(file: UploadFile, folder: str) -> str:
+    """Upload an image file to Cloudinary and return the secure URL."""
+    result = await _save_upload(
+        file, folder, mime_prefix="image/", max_bytes=_MAX_IMAGE_SIZE_BYTES, resource_type="image", label="image"
+    )
+    return result["secure_url"]
 
-    return str(dest_path)
+
+async def save_audio_upload(file: UploadFile, folder: str) -> tuple[str, str]:
+    """Upload an audio file to Cloudinary and return (secure_url, public_id)."""
+    result = await _save_upload(
+        file, folder, mime_prefix="audio/", max_bytes=_MAX_AUDIO_SIZE_BYTES, resource_type="video", label="audio"
+    )
+    return result["secure_url"], result["public_id"]

@@ -80,7 +80,7 @@ async def payment_notify(
             detail="A pending subscription request already exists for this user",
         )
 
-    image_path = await save_upload(bill_image, "bills")
+    image_url = await save_upload(bill_image, "bills")
 
     sub = Subscription(
         user_id=current_user.id,
@@ -88,16 +88,11 @@ async def payment_notify(
         plan_name=package_key,
         amount_vnd=amount,
         transfer_note=transfer_note,
-        bill_image_path=image_path,
+        bill_image_url=image_url,
     )
     db.add(sub)
     await db.flush()
 
-    # image_path is relative to project root (e.g. "uploads/bills/uuid.jpg").
-    # Strip the UPLOADS_DIR prefix to get the path under the /uploads mount.
-    uploads_prefix = settings.UPLOADS_DIR.rstrip("/") + "/"
-    image_subpath = image_path.removeprefix(uploads_prefix)
-    bill_image_url = f"{settings.APP_BASE_URL}/uploads/{image_subpath}"
     username = current_user.username or current_user.email or str(current_user.id)
 
     background_tasks.add_task(
@@ -108,7 +103,7 @@ async def payment_notify(
         amount=amount,
         transfer_note=transfer_note,
         subscription_id=str(sub.id),
-        bill_image_url=bill_image_url,
+        bill_image_url=image_url,
     )
 
     return PaymentNotifyResponse(id=sub.id)

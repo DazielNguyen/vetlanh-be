@@ -39,7 +39,7 @@ class Subscription(Base):
     rejected_at: Mapped[datetime | None] = mapped_column(
         sa.DateTime(timezone=True), nullable=True
     )
-    bill_image_path: Mapped[str | None] = mapped_column(sa.Text, nullable=True)
+    bill_image_url: Mapped[str | None] = mapped_column(sa.Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False
     )

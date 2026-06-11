@@ -9,6 +9,7 @@ from . import (  # noqa: F401
     mood,
     notification_preference,
     safety_plan,
+    sound,
     subscription,
     system_error,
     thought_record,

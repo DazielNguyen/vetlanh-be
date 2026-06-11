@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from app.api.v1.endpoints import assessments, auth, badges, chat, community, crisis, dashboard, errors, exercises, health, journal, journal_prompts, mood, notifications, resources, safety_plan, subscriptions, thought_records, users, wellness
+from app.api.v1.endpoints import assessments, auth, badges, chat, community, crisis, dashboard, errors, exercises, health, journal, journal_prompts, mood, notifications, resources, safety_plan, sounds, subscriptions, thought_records, users, wellness
 from app.api.v1.endpoints.admin import router as admin_router
 
 router = APIRouter()
@@ -21,6 +21,7 @@ router.include_router(dashboard.router)
 router.include_router(badges.router)
 router.include_router(notifications.router)
 router.include_router(resources.router)
+router.include_router(sounds.router)
 router.include_router(community.router)
 router.include_router(wellness.router)
 router.include_router(subscriptions.router)
