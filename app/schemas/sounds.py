@@ -17,6 +17,7 @@ class SoundResponse(BaseModel):
     audio_url: str
     duration_seconds: int | None
     sort_order: int
+    is_published: bool
 
     model_config = {"from_attributes": True}
 
