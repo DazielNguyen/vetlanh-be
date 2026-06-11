@@ -39,6 +39,14 @@ class Settings(BaseSettings):
     # Directory for storing uploaded files (bill images). Relative to project root.
     UPLOADS_DIR: str = "uploads"
 
+    # Base URL used to construct audio_url in SoundResponse.
+    # Production: https://api.vetlanh.app  (Nginx serves /media/sounds/ directly)
+    # Local dev: http://localhost:8000     (FastAPI StaticFiles mount)
+    MEDIA_BASE_URL: str = "http://localhost:8000"
+
+    # Filesystem path to the sounds directory (used by StaticFiles in local dev).
+    SOUNDS_DIR: str = "media/sounds"
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
