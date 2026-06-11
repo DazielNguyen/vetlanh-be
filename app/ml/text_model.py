@@ -15,10 +15,16 @@ import re
 from pathlib import Path
 from typing import Any
 
-import numpy as np
-import torch
-import torch.nn as nn
-from transformers import AutoModel, AutoTokenizer
+# Heavy ML packages are imported lazily inside TextEmotionModel.load() so the
+# module loads cleanly in demo/rule-based mode without torch or transformers installed.
+try:
+    import numpy as np
+    import torch
+    import torch.nn as nn
+    from transformers import AutoModel, AutoTokenizer
+    _ML_AVAILABLE = True
+except ImportError:
+    _ML_AVAILABLE = False
 
 # ── Label maps ────────────────────────────────────────────────────────────────
 EMOTION_LABELS = ["neutral", "happy", "sad", "angry", "anxious", "tired", "disgusted"]
@@ -30,51 +36,54 @@ CHECKPOINT_DIR = Path(os.getenv("CHECKPOINT_DIR", "checkpoints/text_model"))
 MAX_LENGTH = 256
 
 
-# ── Model architecture ────────────────────────────────────────────────────────
-class PhoBERTClassifier(nn.Module):
-    def __init__(
-        self,
-        pretrained_name: str = MODEL_ID,
-        n_emotions: int = len(EMOTION_LABELS),
-        n_depression: int = len(DEPRESSION_LABELS),
-        dropout: float = 0.3,
-    ):
-        super().__init__()
-        self.encoder = AutoModel.from_pretrained(pretrained_name)
-        hidden = self.encoder.config.hidden_size
-        self.shared = nn.Sequential(
-            nn.Dropout(dropout),
-            nn.Linear(hidden, 512),
-            nn.GELU(),
-            nn.Dropout(dropout / 2),
-        )
-        self.emotion_head = nn.Linear(512, n_emotions)
-        self.depression_head = nn.Linear(512, n_depression)
+# ── Model architecture (only defined when torch is available) ─────────────────
+if _ML_AVAILABLE:
+    class PhoBERTClassifier(nn.Module):
+        def __init__(
+            self,
+            pretrained_name: str = MODEL_ID,
+            n_emotions: int = len(EMOTION_LABELS),
+            n_depression: int = len(DEPRESSION_LABELS),
+            dropout: float = 0.3,
+        ):
+            super().__init__()
+            self.encoder = AutoModel.from_pretrained(pretrained_name)
+            hidden = self.encoder.config.hidden_size
+            self.shared = nn.Sequential(
+                nn.Dropout(dropout),
+                nn.Linear(hidden, 512),
+                nn.GELU(),
+                nn.Dropout(dropout / 2),
+            )
+            self.emotion_head = nn.Linear(512, n_emotions)
+            self.depression_head = nn.Linear(512, n_depression)
 
-    def forward(self, input_ids, attention_mask, token_type_ids=None):
-        kwargs = dict(input_ids=input_ids, attention_mask=attention_mask)
-        if token_type_ids is not None:
-            kwargs["token_type_ids"] = token_type_ids
-        out = self.encoder(**kwargs)
-        cls = out.last_hidden_state[:, 0, :]
-        shared = self.shared(cls)
-        return self.emotion_head(shared), self.depression_head(shared)
+        def forward(self, input_ids, attention_mask, token_type_ids=None):
+            kwargs = dict(input_ids=input_ids, attention_mask=attention_mask)
+            if token_type_ids is not None:
+                kwargs["token_type_ids"] = token_type_ids
+            out = self.encoder(**kwargs)
+            cls = out.last_hidden_state[:, 0, :]
+            shared = self.shared(cls)
+            return self.emotion_head(shared), self.depression_head(shared)
 
 
 # ── Inference wrapper ─────────────────────────────────────────────────────────
 class TextEmotionModel:
-    def __init__(self, model: PhoBERTClassifier, tokenizer, device: str, demo_mode: bool = False):
+    def __init__(self, model: Any | None, tokenizer: Any | None, device: str, demo_mode: bool = False):
         self.model = model
         self.tokenizer = tokenizer
         self.device = device
         self.demo_mode = demo_mode
-        self.model.eval()
+        if model is not None:
+            self.model.eval()
 
     @classmethod
     def load(cls) -> "TextEmotionModel":
-        device = "cuda" if torch.cuda.is_available() else "cpu"
+        has_checkpoint = CHECKPOINT_DIR.exists() and (CHECKPOINT_DIR / "model.pt").exists()
 
-        if CHECKPOINT_DIR.exists() and (CHECKPOINT_DIR / "model.pt").exists():
+        if has_checkpoint and _ML_AVAILABLE:
+            device = "cuda" if torch.cuda.is_available() else "cpu"
             config_path = CHECKPOINT_DIR / "config.json"
             config = json.loads(config_path.read_text()) if config_path.exists() else {}
             pretrained = config.get("pretrained_name", MODEL_ID)
@@ -86,11 +95,11 @@ class TextEmotionModel:
             print(f"[TextModel] Loaded fine-tuned checkpoint from {CHECKPOINT_DIR}")
             return cls(model=model, tokenizer=tokenizer, device=device, demo_mode=False)
         else:
-            print("[TextModel] No checkpoint — using comprehensive rule-based engine (demo mode)")
-            tokenizer = AutoTokenizer.from_pretrained(MODEL_ID)
-            model = PhoBERTClassifier(pretrained_name=MODEL_ID)
-            model.to(device)
-            return cls(model=model, tokenizer=tokenizer, device=device, demo_mode=True)
+            if not _ML_AVAILABLE:
+                print("[TextModel] torch/numpy not installed — using rule-based engine")
+            else:
+                print("[TextModel] No checkpoint — using rule-based engine")
+            return cls(model=None, tokenizer=None, device="cpu", demo_mode=True)
 
     def predict(self, text: str) -> dict[str, Any]:
         signals = _extract_text_signals(text)
