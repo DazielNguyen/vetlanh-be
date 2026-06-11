@@ -74,6 +74,7 @@ class UserResponse(BaseModel):
     display_name: str | None = None
     avatar_url: str | None = None
     timezone: str | None = None
+    is_admin: bool = False
 
     model_config = {"from_attributes": True}
     # hashed_password and verification_token are intentionally absent

@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.deps import get_current_user, get_db
+from app.core.deps import get_current_user, get_db, is_admin_user
 from app.models.user import User
 from app.schemas.auth import UserResponse
 from app.schemas.goals import GOAL_LABELS, GoalsUpdateRequest
@@ -18,7 +18,9 @@ router = APIRouter()
 
 @router.get("/users/me", response_model=UserResponse)
 async def me(current_user: User = Depends(get_current_user)):
-    return current_user
+    return UserResponse.model_validate(current_user).model_copy(
+        update={"is_admin": is_admin_user(current_user)}
+    )
 
 
 @router.patch("/users/me", response_model=UserResponse)

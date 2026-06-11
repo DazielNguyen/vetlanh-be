@@ -61,6 +61,11 @@ async def get_current_user(
     return await get_user_by_username(db, subject)
 
 
+def is_admin_user(user) -> bool:
+    identities = {v for v in (user.username, user.email) if v}
+    return bool(identities & _ADMIN_USERS)
+
+
 async def require_admin(
     current_user=Depends(get_current_user),
 ):
