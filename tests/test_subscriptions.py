@@ -19,6 +19,9 @@ from app.models.subscription import Subscription
 
 _USERNAME_PREFIX = "sub_"
 
+ADMIN_USERNAME = "duy1"
+ADMIN_PASSWORD = "Admin1234!"
+
 
 @pytest.fixture(autouse=True)
 async def clean_subscriptions_and_users():
@@ -56,6 +59,15 @@ async def _register_and_login(client: AsyncClient, username: str) -> str:
     return r.json()["access_token"]
 
 
+async def _login_admin(client: AsyncClient) -> str:
+    r = await client.post(
+        "/api/v1/auth/login-username",
+        json={"username": ADMIN_USERNAME, "password": ADMIN_PASSWORD},
+    )
+    assert r.status_code == 200, f"Admin login failed [{r.status_code}]: {r.text}"
+    return r.json()["access_token"]
+
+
 class TestPaymentNotifyTransferDate:
 
     async def test_transfer_date_is_populated_with_server_receipt_time(self, client: AsyncClient):
@@ -84,3 +96,58 @@ class TestPaymentNotifyTransferDate:
 
         assert sub.transfer_date is not None, "transfer_date must not be NULL — FE renders epoch (01/01/1970) for null"
         assert before <= sub.transfer_date <= after
+
+
+class TestPaymentNotifyDurationMonths:
+    """
+    payment-notify only receives package_key, not duration_months — without a
+    server-side package_key -> months mapping, sub.duration_months stayed NULL,
+    and admin's "Duyệt" (grant) always failed with 422 since neither the grant
+    body nor the stored row had a usable duration.
+    """
+
+    async def test_duration_months_is_derived_from_package_key(self, client: AsyncClient):
+        token = await _register_and_login(client, f"{_USERNAME_PREFIX}user2")
+
+        with patch(
+            "app.api.v1.endpoints.subscriptions.save_upload",
+            new=AsyncMock(return_value="https://cdn.test/bill.png"),
+        ):
+            resp = await client.post(
+                "/api/v1/subscriptions/payment-notify",
+                data={"package_key": "1nam", "amount": "599000"},
+                files={"bill_image": ("bill.png", b"fake-bytes", "image/png")},
+                headers=_auth_header(token),
+            )
+        assert resp.status_code == 201, f"payment-notify failed [{resp.status_code}]: {resp.text}"
+        sub_id = resp.json()["id"]
+
+        async with AsyncSessionLocal() as db:
+            sub = (
+                await db.execute(select(Subscription).where(Subscription.id == sub_id))
+            ).scalar_one()
+        assert sub.duration_months == 12
+
+    async def test_grant_succeeds_without_admin_override_after_bill_upload_flow(self, client: AsyncClient):
+        token = await _register_and_login(client, f"{_USERNAME_PREFIX}user3")
+
+        with patch(
+            "app.api.v1.endpoints.subscriptions.save_upload",
+            new=AsyncMock(return_value="https://cdn.test/bill.png"),
+        ):
+            resp = await client.post(
+                "/api/v1/subscriptions/payment-notify",
+                data={"package_key": "1nam", "amount": "599000"},
+                files={"bill_image": ("bill.png", b"fake-bytes", "image/png")},
+                headers=_auth_header(token),
+            )
+        assert resp.status_code == 201
+        sub_id = resp.json()["id"]
+
+        admin_token = await _login_admin(client)
+        grant_resp = await client.post(
+            f"/api/v1/admin/subscriptions/{sub_id}/grant",
+            json={},
+            headers=_auth_header(admin_token),
+        )
+        assert grant_resp.status_code == 200, f"grant failed [{grant_resp.status_code}]: {grant_resp.text}"

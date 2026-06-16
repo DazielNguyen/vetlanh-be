@@ -17,6 +17,18 @@ router = APIRouter(prefix="/subscriptions", tags=["subscriptions"])
 # Emails to notify when a new payment bill is submitted (separate from access control)
 _ADMIN_EMAILS: list[str] = [e.strip() for e in settings.ADMIN_NOTIFICATION_EMAILS.split(",") if e.strip()]
 
+# Mirrors FE's lib/constants/packages.ts — payment-notify only receives package_key,
+# not duration_months, so the grant step (admin/subscriptions.py) would otherwise
+# have nothing to fall back on and reject with 422. "tronddoi" (lifetime) has no
+# real expiry concept; 1200 months (100 years) stands in for "forever".
+_PACKAGE_DURATIONS: dict[str, int] = {
+    "1thang": 1,
+    "3thang": 3,
+    "6thang": 6,
+    "1nam": 12,
+    "tronddoi": 1200,
+}
+
 
 @router.post("/pending", response_model=PendingSubmitResponse, status_code=201)
 async def submit_pending_subscription(
@@ -88,6 +100,7 @@ async def payment_notify(
         user_id=current_user.id,
         status="pending",
         plan_name=package_key,
+        duration_months=_PACKAGE_DURATIONS.get(package_key),
         amount_vnd=amount,
         # No transfer_date in this multipart flow (unlike /pending) — use the
         # server's receipt time as the best available "ngày chuyển" rather than NULL.
