@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from pydantic import BaseModel, EmailStr, field_validator
 
 
@@ -75,6 +77,9 @@ class UserResponse(BaseModel):
     avatar_url: str | None = None
     timezone: str | None = None
     is_admin: bool = False
+    subscription_status: str = "none"  # "pro" | "expired" | "none"
+    subscription_plan: str | None = None
+    subscription_expires_at: datetime | None = None
 
     model_config = {"from_attributes": True}
     # hashed_password and verification_token are intentionally absent

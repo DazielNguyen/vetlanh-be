@@ -190,9 +190,17 @@ Authentication required.
   "goals": ["reduce_anxiety", "better_sleep"],
   "display_name": "Nguyen Van A",
   "avatar_url": "https://...",
-  "timezone": "Asia/Ho_Chi_Minh"
+  "timezone": "Asia/Ho_Chi_Minh",
+  "subscription_status": "pro",
+  "subscription_plan": "monthly",
+  "subscription_expires_at": "2026-12-16T00:00:00Z"
 }
 ```
+
+**Subscription fields (computed by `GET /users/me`):**
+- `subscription_status`: `"pro"` (active subscription) | `"expired"` (expired subscription) | `"none"` (no subscription)
+- `subscription_plan`: Plan name (e.g., `"monthly"`, `"1nam"`) or `null` if no subscription
+- `subscription_expires_at`: ISO 8601 timestamp when the subscription expires, or `null` if no subscription
 
 **PATCH /users/me — Request body (all fields optional):**
 ```json

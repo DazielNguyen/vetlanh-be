@@ -12,14 +12,24 @@ from app.services.goals import update_user_goals
 from app.services.healing_path import get_healing_path, get_user_stats
 from app.services.mood import get_mood_summary
 from app.services.profile import update_profile
+from app.services.subscription import get_subscription_status
 
 router = APIRouter()
 
 
 @router.get("/users/me", response_model=UserResponse)
-async def me(current_user: User = Depends(get_current_user)):
+async def me(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    sub_status, sub_plan, sub_expires_at = await get_subscription_status(db, current_user.id)
     return UserResponse.model_validate(current_user).model_copy(
-        update={"is_admin": is_admin_user(current_user)}
+        update={
+            "is_admin": is_admin_user(current_user),
+            "subscription_status": sub_status,
+            "subscription_plan": sub_plan,
+            "subscription_expires_at": sub_expires_at,
+        }
     )
 
 
