@@ -1,3 +1,5 @@
+from urllib.parse import urlencode
+
 import httpx
 from fastapi import HTTPException
 from sqlalchemy import select
@@ -20,10 +22,10 @@ def build_google_auth_url(state: str = "") -> str:
         "response_type": "code",
         "scope": _SCOPES,
         "access_type": "offline",
-        "state": state,
     }
-    query = "&".join(f"{k}={v}" for k, v in params.items() if v)
-    return f"{_GOOGLE_AUTH_URL}?{query}"
+    if state:
+        params["state"] = state
+    return f"{_GOOGLE_AUTH_URL}?{urlencode(params)}"
 
 
 async def _exchange_code(code: str) -> dict:
