@@ -1,9 +1,9 @@
 # Environment — local files only, never commit real values
 .env
+.env.example
 .env.local
 .env.*.local
 .env.development
-!.env.example
 
 # Python
 __pycache__/
