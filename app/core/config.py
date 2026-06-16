@@ -20,10 +20,6 @@ class Settings(BaseSettings):
     # Groq — required for AI chat; no default so startup fails loudly when missing
     GROQ_API_KEY: str
 
-    # Google OAuth2 — required only when Google login is enabled
-    GOOGLE_CLIENT_ID: str = ""
-    GOOGLE_CLIENT_SECRET: str = ""
-    GOOGLE_REDIRECT_URI: str = "http://localhost:8000/api/v1/auth/google/callback"
     FRONTEND_URL: str = "http://localhost:5173"
 
     # Single origin used to build frontend links in emails (verification, password reset).

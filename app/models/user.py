@@ -13,13 +13,12 @@ class User(Base, TimestampMixin):
     id: Mapped[int] = mapped_column(primary_key=True)
     email: Mapped[str | None] = mapped_column(String(255), unique=True, nullable=True, index=True)
     username: Mapped[str | None] = mapped_column(String(50), unique=True, nullable=True, index=True)
-    # nullable=True: OAuth users have no password
+    # nullable=True: username-only users have no password
     hashed_password: Mapped[str | None] = mapped_column(String(255), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
 
-    # "email" for standard registration, "google" for OAuth users
+    # "email" for email+password registration, "username" for username-only users
     auth_provider: Mapped[str] = mapped_column(String(20), nullable=False, server_default="email")
-    google_id: Mapped[str | None] = mapped_column(String(128), nullable=True, unique=True)
 
     # Email verification — False until user clicks the link in their inbox
     is_verified: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
@@ -34,7 +33,7 @@ class User(Base, TimestampMixin):
     display_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
     avatar_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
     timezone: Mapped[str | None] = mapped_column(String(64), nullable=True, server_default="Asia/Ho_Chi_Minh")
-    # "email" | "username" | "google" — how the user registered; drives admin panel badge
+    # "email" | "username" — how the user registered; drives admin panel badge
     account_type: Mapped[str | None] = mapped_column(String(20), nullable=True, server_default="email")
     last_active_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 

@@ -1,16 +1,10 @@
-from urllib.parse import quote
-
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
-from fastapi.responses import RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.config import settings
 from app.core.deps import get_db
-from app.core.security import create_access_token
 from app.schemas.auth import MessageResponse, ResendRequest, Token, UserLogin, UserRegister, UsernameLogin, UsernameRegister, UserResponse
 from app.services.auth import login_user, login_with_username, register_user, register_with_username, resend_verification, verify_email
 from app.services.email import send_verification_email
-from app.services.oauth import build_google_auth_url, google_upsert_user
 
 router = APIRouter()
 
@@ -57,28 +51,6 @@ async def verify(
     await verify_email(db, token)
     return MessageResponse(message="Email verified successfully. You can now log in.")
 
-
-@router.get("/auth/google")
-async def google_auth():
-    """Return the Google OAuth authorization URL for the frontend to redirect to."""
-    url = build_google_auth_url()
-    return {"authorization_url": url}
-
-
-@router.get("/auth/google/callback")
-async def google_callback(
-    code: str = Query(..., description="Authorization code returned by Google"),
-    db: AsyncSession = Depends(get_db),
-):
-    """Exchange the Google authorization code for a JWT, then redirect to the frontend."""
-    try:
-        user = await google_upsert_user(db, code)
-        await db.commit()
-        token = create_access_token(subject=user.email)
-        return RedirectResponse(f"{settings.FRONTEND_URL}/auth/google/callback?token={token}")
-    except HTTPException as exc:
-        error_msg = quote(str(exc.detail))
-        return RedirectResponse(f"{settings.FRONTEND_URL}/login?error={error_msg}")
 
 
 @router.post("/auth/resend-verification", response_model=MessageResponse)
