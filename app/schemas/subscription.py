@@ -15,6 +15,7 @@ class SubscriptionPendingRow(BaseModel):
     transferDate: datetime | None
     note: str | None
     amount_vnd: int | None
+    bill_image_url: str | None
 
     @computed_field  # type: ignore[prop-decorator]
     @property

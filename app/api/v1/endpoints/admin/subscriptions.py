@@ -28,6 +28,7 @@ def _pending_row(sub: Subscription, user: User) -> SubscriptionPendingRow:
         transferDate=sub.transfer_date,
         note=sub.transfer_note,
         amount_vnd=sub.amount_vnd,
+        bill_image_url=sub.bill_image_url,
     )
 
 

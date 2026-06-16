@@ -151,3 +151,36 @@ class TestPaymentNotifyDurationMonths:
             headers=_auth_header(admin_token),
         )
         assert grant_resp.status_code == 200, f"grant failed [{grant_resp.status_code}]: {grant_resp.text}"
+
+
+class TestPendingListIncludesBillImageUrl:
+    """
+    The admin pending-list endpoint omitted bill_image_url even though the FE
+    already renders it — admins had no way to view the uploaded bill on the FE
+    (only via the email notification link).
+    """
+
+    async def test_pending_list_returns_bill_image_url(self, client: AsyncClient):
+        token = await _register_and_login(client, f"{_USERNAME_PREFIX}user4")
+
+        with patch(
+            "app.api.v1.endpoints.subscriptions.save_upload",
+            new=AsyncMock(return_value="https://res.cloudinary.com/test/bill.png"),
+        ):
+            resp = await client.post(
+                "/api/v1/subscriptions/payment-notify",
+                data={"package_key": "1nam", "amount": "599000"},
+                files={"bill_image": ("bill.png", b"fake-bytes", "image/png")},
+                headers=_auth_header(token),
+            )
+        assert resp.status_code == 201
+
+        admin_token = await _login_admin(client)
+        list_resp = await client.get(
+            "/api/v1/admin/subscriptions/pending",
+            headers=_auth_header(admin_token),
+        )
+        assert list_resp.status_code == 200
+        rows = [r for r in list_resp.json() if r["id"] == resp.json()["id"]]
+        assert len(rows) == 1
+        assert rows[0]["bill_image_url"] == "https://res.cloudinary.com/test/bill.png"
