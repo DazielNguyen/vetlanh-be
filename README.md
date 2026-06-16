@@ -8,7 +8,7 @@ Backend API for the Vet Lanh mental wellness platform. Built with FastAPI and as
 
 - [Tech Stack](#tech-stack)
 - [Local Setup](#local-setup)
-- [Environment Variables](#environment-variables)
+- [Environment Setup](#environment-setup)
 - [Project Structure](#project-structure)
 - [API Reference](#api-reference)
   - [Authentication](#authentication)
@@ -64,7 +64,7 @@ pip install -r requirements.txt
 
 # 4. Copy environment file
 cp .env.example .env
-# Fill in the required values (see Environment Variables below)
+# Fill in the required values (see Environment Setup below)
 
 # 5. Start PostgreSQL with Docker
 docker compose up -d --wait
@@ -80,22 +80,59 @@ Interactive API docs are available at `http://localhost:8000/docs`.
 
 ---
 
-## Environment Variables
+## Environment Setup
 
-| Variable                    | Required | Description                                           |
-| --------------------------- | -------- | ----------------------------------------------------- |
-| `DATABASE_URL`              | Yes      | PostgreSQL async URL (`postgresql+asyncpg://...`)     |
-| `SECRET_KEY`                | Yes      | Random secret for JWT signing (min 32 chars)          |
-| `JOURNAL_ENCRYPTION_KEY`    | Yes      | Fernet key for encrypting journal content at rest     |
-| `GROQ_API_KEY`              | Yes      | Groq API key for AI chat (LLaMA 3)                   |
-| `GOOGLE_CLIENT_ID`          | Yes      | Google OAuth 2.0 client ID                            |
-| `GOOGLE_CLIENT_SECRET`      | Yes      | Google OAuth 2.0 client secret                        |
-| `GOOGLE_REDIRECT_URI`       | Yes      | OAuth callback URL registered in Google Cloud Console |
-| `SMTP_HOST`                 | No       | SMTP host for verification emails                     |
-| `SMTP_PORT`                 | No       | SMTP port (default: 587)                              |
-| `SMTP_USER`                 | No       | SMTP username                                         |
-| `SMTP_PASSWORD`             | No       | SMTP password                                         |
-| `FRONTEND_BASE_URL`         | No       | Frontend URL used in verification email links         |
+`.env` is for **local development only** and is git-ignored. Production values live exclusively in the Vercel dashboard — no `.env` file is ever deployed to the server.
+
+### Local development
+
+```bash
+cp .env.example .env
+# Fill in the values marked REQUIRED — the app refuses to start if they are missing.
+```
+
+### Production (Vercel)
+
+Set each variable via the Vercel dashboard (Project Settings → Environment Variables) or CLI:
+
+```bash
+vercel env add DATABASE_URL production
+vercel env add SECRET_KEY production
+# ... repeat for each required key
+```
+
+Key values that differ between environments:
+
+| Key | Local | Production |
+|-----|-------|------------|
+| `APP_BASE_URL` | `http://localhost:8000` | `https://api.vetlanh.io.vn` |
+| `FRONTEND_URL` | `http://localhost:5173` | `https://vetlanh.io.vn` |
+| `GOOGLE_REDIRECT_URI` | `http://localhost:8000/api/v1/auth/google/callback` | `https://api.vetlanh.io.vn/api/v1/auth/google/callback` |
+
+### Variables reference
+
+| Variable | Required | Description |
+| -------- | -------- | ----------- |
+| `DATABASE_URL` | **Yes** | PostgreSQL async URL (`postgresql+asyncpg://...`) |
+| `SECRET_KEY` | **Yes** | Random secret for JWT signing (min 32 chars) |
+| `JOURNAL_ENCRYPTION_KEY` | **Yes** | Fernet key for encrypting journal content at rest |
+| `GROQ_API_KEY` | **Yes** | Groq API key for AI chat (LLaMA 3) |
+| `CLOUDINARY_CLOUD_NAME` | **Yes** | Cloudinary cloud name for media storage |
+| `CLOUDINARY_API_KEY` | **Yes** | Cloudinary API key |
+| `CLOUDINARY_API_SECRET` | **Yes** | Cloudinary API secret |
+| `ACCESS_TOKEN_EXPIRE_MINUTES` | No (default: 30) | JWT token lifetime in minutes |
+| `RESEND_API_KEY` | No | Resend API key for transactional emails |
+| `EMAIL_FROM` | No | Sender address for transactional emails |
+| `APP_BASE_URL` | No (default: localhost) | Public URL of this backend — used in email links |
+| `FRONTEND_URL` | No (default: localhost) | Frontend origin for CORS and OAuth redirects |
+| `FRONTEND_BASE_URL` | No (default: localhost) | Frontend URL used in email verification links |
+| `CORS_ORIGINS` | No | Extra comma-separated origins for the CORS allowlist |
+| `GOOGLE_CLIENT_ID` | No | Google OAuth 2.0 client ID |
+| `GOOGLE_CLIENT_SECRET` | No | Google OAuth 2.0 client secret |
+| `GOOGLE_REDIRECT_URI` | No (default: localhost) | OAuth callback URL — must match Google Cloud Console |
+| `ADMIN_USERS` | No | Comma-separated usernames/emails with admin access |
+| `ADMIN_NOTIFICATION_EMAILS` | No | Emails notified on new payment submissions |
+| `UPLOADS_DIR` | No (default: uploads) | Local directory for bill image uploads |
 
 ---
 
