@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+
 from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -87,6 +89,9 @@ async def payment_notify(
         status="pending",
         plan_name=package_key,
         amount_vnd=amount,
+        # No transfer_date in this multipart flow (unlike /pending) — use the
+        # server's receipt time as the best available "ngày chuyển" rather than NULL.
+        transfer_date=datetime.now(timezone.utc),
         transfer_note=transfer_note,
         bill_image_url=image_url,
     )
