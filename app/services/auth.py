@@ -156,6 +156,20 @@ async def register_with_username(db: AsyncSession, username: str, password: str)
     return create_access_token(subject=username)
 
 
+async def change_password(db: AsyncSession, user: User, current_password: str, new_password: str) -> None:
+    if user.hashed_password is None:
+        raise HTTPException(status_code=400, detail="Tài khoản này không có mật khẩu. Vui lòng đăng nhập bằng phương thức khác.")
+
+    if not verify_password(current_password, user.hashed_password):
+        raise HTTPException(status_code=400, detail="Mật khẩu hiện tại không đúng.")
+
+    if current_password == new_password:
+        raise HTTPException(status_code=400, detail="Mật khẩu mới không được trùng với mật khẩu hiện tại.")
+
+    user.hashed_password = hash_password(new_password)
+    await db.commit()
+
+
 async def get_user_by_email(db: AsyncSession, email: str) -> User:
     result = await db.execute(select(User).where(User.email == email))
     user = result.scalar_one_or_none()

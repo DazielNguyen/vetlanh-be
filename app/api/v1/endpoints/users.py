@@ -1,14 +1,18 @@
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_current_user, get_db, is_admin_user
+from app.core.rate_limit import limiter
+from app.core.upload import save_upload
 from app.models.user import User
-from app.schemas.auth import UserResponse
+from app.schemas.auth import AvatarResponse, EmailChangeRequest, MessageResponse, UserResponse
 from app.schemas.goals import GOAL_LABELS, GoalsUpdateRequest
 from app.schemas.healing_path import HealingPathResponse, UserStatsResponse
 from app.schemas.mood import MoodSummaryEntry
 from app.schemas.profile import ProfileUpdateRequest
+from app.services.email import send_email_change_alert, send_email_change_confirmation
 from app.services.goals import update_user_goals
+from app.services.settings import request_email_change
 from app.services.healing_path import get_healing_path, get_user_stats
 from app.services.mood import get_mood_summary
 from app.services.profile import update_profile
@@ -85,3 +89,45 @@ async def healing_path(
 ):
     """Return the user's healing path progress across core self-care tasks."""
     return await get_healing_path(db, current_user.id)
+
+
+_MAX_AVATAR_SIZE_BYTES = 5 * 1024 * 1024  # 5 MB
+
+
+@router.post("/users/me/avatar", response_model=AvatarResponse)
+@limiter.limit("10/minute")
+async def upload_avatar(
+    request: Request,
+    file: UploadFile,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    if file.size is not None and file.size > _MAX_AVATAR_SIZE_BYTES:
+        raise HTTPException(status_code=413, detail="Kích thước file không được vượt quá 5MB.")
+    if file.size is None:
+        contents = await file.read()
+        if len(contents) > _MAX_AVATAR_SIZE_BYTES:
+            raise HTTPException(status_code=413, detail="Kích thước file không được vượt quá 5MB.")
+        await file.seek(0)
+
+    avatar_url = await save_upload(file, "avatars")
+    current_user.avatar_url = avatar_url
+    await db.commit()
+    return AvatarResponse(avatar_url=avatar_url)
+
+
+@router.patch("/users/me/email", response_model=MessageResponse)
+@limiter.limit("3/hour")
+async def change_email(
+    request: Request,
+    body: EmailChangeRequest,
+    background_tasks: BackgroundTasks,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    old_email = current_user.email
+    token = await request_email_change(db, current_user, body.new_email, body.current_password)
+    background_tasks.add_task(send_email_change_confirmation, body.new_email, token)
+    if old_email:
+        background_tasks.add_task(send_email_change_alert, old_email)
+    return MessageResponse(message="Email xác thực đã được gửi đến địa chỉ mới của bạn.")

@@ -1,10 +1,13 @@
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.deps import get_db
-from app.schemas.auth import MessageResponse, ResendRequest, Token, UserLogin, UserRegister, UsernameLogin, UsernameRegister, UserResponse
-from app.services.auth import login_user, login_with_username, register_user, register_with_username, resend_verification, verify_email
+from app.core.deps import get_current_user, get_db
+from app.core.rate_limit import limiter
+from app.models.user import User
+from app.schemas.auth import ChangePasswordRequest, MessageResponse, ResendRequest, Token, UserLogin, UserRegister, UsernameLogin, UsernameRegister, UserResponse
+from app.services.auth import change_password, login_user, login_with_username, register_user, register_with_username, resend_verification, verify_email
 from app.services.email import send_verification_email
+from app.services.settings import confirm_email_change
 
 router = APIRouter()
 
@@ -67,3 +70,24 @@ async def resend(
     return MessageResponse(
         message="If that email is registered and unverified, a new link has been sent."
     )
+
+
+@router.post("/auth/change-password", response_model=MessageResponse)
+@limiter.limit("5/minute")
+async def change_password_endpoint(
+    request: Request,
+    body: ChangePasswordRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    await change_password(db, current_user, body.current_password, body.new_password)
+    return MessageResponse(message="Mật khẩu đã được cập nhật thành công.")
+
+
+@router.get("/auth/verify-email-change", response_model=MessageResponse)
+async def verify_email_change(
+    token: str = Query(..., description="Email change token from the confirmation link"),
+    db: AsyncSession = Depends(get_db),
+):
+    await confirm_email_change(db, token)
+    return MessageResponse(message="Email đã được cập nhật thành công.")

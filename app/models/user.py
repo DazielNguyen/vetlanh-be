@@ -37,6 +37,10 @@ class User(Base, TimestampMixin):
     account_type: Mapped[str | None] = mapped_column(String(20), nullable=True, server_default="email")
     last_active_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
+    pending_email: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    email_change_token: Mapped[str | None] = mapped_column(String(64), nullable=True, unique=True)
+    email_change_token_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
     assessments = relationship("Assessment", back_populates="user", order_by="Assessment.created_at")
     conversations = relationship("Conversation", back_populates="user", order_by="Conversation.created_at")
     mood_entries = relationship("MoodEntry", back_populates="user", order_by="MoodEntry.date")

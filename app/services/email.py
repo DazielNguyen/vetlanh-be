@@ -117,3 +117,55 @@ async def send_verification_email(to_email: str, token: str) -> None:
         # Log full traceback but do not propagate — email outage must not
         # prevent the user from registering (they can request a resend).
         logger.exception("Failed to send verification email to %s", to_email)
+
+
+async def _send_email(to_email: str, subject: str, html_body: str) -> None:
+    params: resend.Emails.SendParams = {
+        "from": settings.EMAIL_FROM,
+        "to": [to_email],
+        "subject": subject,
+        "html": html_body,
+    }
+    try:
+        await asyncio.to_thread(resend.Emails.send, params)
+        logger.info("Email sent to %s — %s", to_email, subject)
+    except Exception:
+        logger.exception("Failed to send email to %s — %s", to_email, subject)
+
+
+async def send_email_change_confirmation(to_email: str, token: str) -> None:
+    """Send confirmation link to the new email address. Fire-and-forget."""
+    verify_url = f"{settings.FRONTEND_BASE_URL}/verify-email-change?token={quote(token, safe='')}"
+    html_body = f"""
+    <html>
+      <body style="font-family: sans-serif; color: #333; max-width: 480px; margin: 0 auto;">
+        <h2 style="color: #4A7C59;">Xác nhận thay đổi email</h2>
+        <p>Bạn đã yêu cầu thay đổi địa chỉ email trên Vết Lành. Nhấn vào nút bên dưới để xác nhận:</p>
+        <a href="{verify_url}"
+           style="display:inline-block; padding:12px 24px; background:#4A7C59;
+                  color:#fff; text-decoration:none; border-radius:6px; margin:16px 0;">
+          Xác nhận email mới
+        </a>
+        <p style="color: #999; font-size: 13px;">
+          Liên kết có hiệu lực trong 1 giờ.<br>
+          Nếu bạn không thực hiện yêu cầu này, hãy bỏ qua email này.
+        </p>
+      </body>
+    </html>
+    """
+    await _send_email(to_email, "Xác nhận thay đổi email — Vết Lành", html_body)
+
+
+async def send_email_change_alert(to_email: str) -> None:
+    """Notify the old email address that an email change was requested. Fire-and-forget."""
+    html_body = """
+    <html>
+      <body style="font-family: sans-serif; color: #333; max-width: 480px; margin: 0 auto;">
+        <h2 style="color: #c0392b;">Cảnh báo bảo mật</h2>
+        <p>Tài khoản Vết Lành của bạn vừa nhận được yêu cầu thay đổi địa chỉ email.</p>
+        <p>Nếu bạn không thực hiện yêu cầu này, tài khoản của bạn có thể đang bị truy cập trái phép.
+           Hãy đổi mật khẩu ngay lập tức.</p>
+      </body>
+    </html>
+    """
+    await _send_email(to_email, "[Vết Lành] Cảnh báo: Yêu cầu thay đổi email", html_body)
