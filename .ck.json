@@ -22,7 +22,7 @@
   },
   "privacyBlock": {
     "enabled": true,
-    "allowList": [".env.example", ".env"]
+    "allowList": [".env.example", ".env", "phase-01-change-password.md"]
   },
   "simplify": {
     "threshold": {
