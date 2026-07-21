@@ -58,9 +58,42 @@ class InsightItem(BaseModel):
 
 
 class InsightsResponse(BaseModel):
+    status: Literal["processing", "ready", "unavailable"] = "unavailable"
+    analysis_for_entry_id: str | None = None
     total_entries: int
     has_enough_data: bool
+    generated_by: Literal["rules", "agent"] = "rules"
+    generated_at: datetime | None = None
+    reflection: "MoodReflection | None" = None
+    next_action: "MoodNextAction | None" = None
+    follow_up_prompt: str | None = None
     insights: list[InsightItem]
+
+
+class MoodReflection(BaseModel):
+    acknowledgement: str = Field(min_length=1, max_length=140)
+    observation: str = Field(min_length=1, max_length=260)
+    evidence: str | None = Field(default=None, max_length=100)
+    confidence: Literal["low", "medium", "high"]
+
+
+class MoodNextAction(BaseModel):
+    type: Literal["exercise", "journal", "chat", "rest"]
+    title: str = Field(min_length=1, max_length=80)
+    description: str | None = Field(default=None, max_length=120)
+    url: str = Field(pattern=r"^/[^/].*")
+
+
+class AgentMoodOutput(BaseModel):
+    """Strict model-output envelope; confidence/evidence are supplied by the backend."""
+
+    acknowledgement: str = Field(min_length=1, max_length=140)
+    observation: str = Field(min_length=1, max_length=260)
+    action_title: str | None = Field(default=None, max_length=80)
+    action_description: str | None = Field(default=None, max_length=120)
+    follow_up_prompt: str | None = Field(default=None, max_length=260)
+
+    model_config = {"extra": "forbid"}
 
 
 class HeatmapDay(BaseModel):

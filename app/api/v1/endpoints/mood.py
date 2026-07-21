@@ -1,7 +1,8 @@
+import logging
 from datetime import date
 from typing import Literal
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, Query, Response, status
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -9,10 +10,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.deps import get_current_user, get_db
 from app.models.user import User
 from app.schemas.mood import HeatmapResponse, InsightsResponse, MoodEntryCreate, MoodEntryResponse, MoodFactor, MoodTrendResponse
-from app.services.insights import get_insights
+from app.services.mood_analysis import enqueue_analysis, get_agentic_insights, schedule_analysis
 from app.services.mood import create_or_update_entry, get_heatmap, get_mood_factors, get_trend, list_entries
 
 router = APIRouter(prefix="/mood", tags=["mood"])
+logger = logging.getLogger(__name__)
 
 
 @router.post("/entries", response_model=MoodEntryResponse)
@@ -28,7 +30,17 @@ async def checkin(
     - After 1 hour → 409 Conflict
     """
     entry, created = await create_or_update_entry(db, current_user.id, payload)
-    # db.commit() is handled by get_db dependency — do not call it here
+    # Commit the check-in before scheduling work so the worker can use an independent
+    # session and the model can never extend (or roll back) the save transaction.
+    await db.commit()
+    try:
+        analysis = await enqueue_analysis(db, current_user.id, entry)
+        await db.commit()
+        schedule_analysis(analysis.id)
+    except Exception as exc:
+        # Enqueue failure must not turn a successfully saved check-in into an error.
+        await db.rollback()
+        logger.warning("Could not enqueue mood analysis: %s", type(exc).__name__)
     status_code = status.HTTP_201_CREATED if created else status.HTTP_200_OK
     return JSONResponse(
         status_code=status_code,
@@ -51,14 +63,17 @@ async def get_entries(
 
 @router.get("/insights", response_model=InsightsResponse)
 async def get_mood_insights(
+    response: Response,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Return personalised mood insights from historical check-in data.
 
-    Requires at least 7 check-ins. Returns has_enough_data=false with empty insights list otherwise.
+    Reflection generation can start with the first check-in. Weekly deterministic
+    insights still require enough history and remain available for older clients.
     """
-    return await get_insights(db, current_user.id)
+    response.headers["Cache-Control"] = "private, no-store"
+    return await get_agentic_insights(db, current_user.id)
 
 
 @router.get("/heatmap", response_model=HeatmapResponse)

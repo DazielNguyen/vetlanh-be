@@ -36,7 +36,15 @@ def _run_migrations() -> None:
 async def lifespan(app: FastAPI):
     await asyncio.to_thread(_run_migrations)
     await run_seed()
+    # Import after migrations to avoid querying the queue before its table exists.
+    from app.services.mood_analysis import (  # noqa: PLC0415
+        recover_pending_analyses,
+        shutdown_analysis_tasks,
+    )
+
+    await recover_pending_analyses()
     yield
+    await shutdown_analysis_tasks()
     # dispose() drains the pool and closes all connections.
     # Skipping this causes "Event loop closed" / "unclosed connection" warnings.
     await engine.dispose()
@@ -96,4 +104,3 @@ if not os.getenv("VERCEL"):
     _uploads_path = Path(settings.UPLOADS_DIR)
     _uploads_path.mkdir(parents=True, exist_ok=True)
     app.mount("/uploads", StaticFiles(directory=str(_uploads_path)), name="uploads")
-
