@@ -8,12 +8,14 @@ from httpx import AsyncClient
 from pydantic import ValidationError
 from sqlalchemy import select
 
+from app.core.config import settings
 from app.core.database import AsyncSessionLocal
 from app.models.mood import MoodAnalysis
 from app.schemas.mood import AgentMoodOutput, MoodNextAction
 from app.services.crisis import CrisisLevel
 from app.services.mood_analysis import (
     _confidence_and_evidence,
+    _generate_agent_output,
     _generate_with_retry,
     _is_current_job,
     _safe_action,
@@ -149,6 +151,31 @@ class TestMoodAgenticBoundaries:
             with pytest.raises(TimeoutError):
                 await _generate_with_retry(entry, {"factor_correlations": []})
         assert generator.await_count == 2
+
+    async def test_openai_structured_output_uses_privacy_controls(self):
+        entry = self._entry()
+        entry.user_id = 42
+        output = AgentMoodOutput(
+            acknowledgement="Mình đang lắng nghe bạn.",
+            observation="Hôm nay có vẻ là một ngày khá nặng nề.",
+        )
+        response = MagicMock(output_parsed=output)
+        parse = AsyncMock(return_value=response)
+        client = MagicMock()
+        client.responses.parse = parse
+
+        with patch("app.services.mood_analysis._client", client):
+            result = await _generate_agent_output(entry, {"factor_correlations": []})
+
+        assert result == output
+        kwargs = parse.await_args.kwargs
+        assert kwargs["model"] == settings.OPENAI_MOOD_MODEL
+        assert kwargs["text_format"] is AgentMoodOutput
+        assert kwargs["max_output_tokens"] == 500
+        assert kwargs["store"] is False
+        assert kwargs["reasoning"] == {"effort": "none"}
+        assert len(kwargs["safety_identifier"]) == 64
+        assert "42" not in kwargs["safety_identifier"]
 
     async def test_old_entry_version_cannot_be_published(self):
         old_version = datetime(2026, 7, 21, 1, tzinfo=timezone.utc)

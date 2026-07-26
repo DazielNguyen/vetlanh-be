@@ -5,6 +5,7 @@ receives those precomputed facts and cannot choose confidence, evidence, or URLs
 """
 
 import asyncio
+import hashlib
 import json
 import logging
 import re
@@ -12,7 +13,7 @@ from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from groq import AsyncGroq
+from openai import AsyncOpenAI
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -33,14 +34,14 @@ from app.services.mood import get_mood_factors
 logger = logging.getLogger(__name__)
 
 PROMPT_VERSION = "mood-reflection-v1"
-_MODEL = "llama-3.3-70b-versatile"
+_MODEL = settings.OPENAI_MOOD_MODEL
 _PROCESSING_TTL = timedelta(seconds=15)
 _MODEL_TIMEOUT_SECONDS = 8
 _RETRY_TIMEOUT_SECONDS = 6
 _FORBIDDEN_CAUSAL_WORDS = ("chắc chắn", "gây ra", "chẩn đoán", "bạn bị", "bạn mắc")
 _FORBIDDEN_CAUSAL_RE = re.compile(r"\bdo\b", re.IGNORECASE)
 _MARKUP_RE = re.compile(r"<[^>]+>|(^|\s)[#*_`]|^\s*[-+>]\s", re.MULTILINE)
-_client = AsyncGroq(api_key=settings.GROQ_API_KEY)
+_client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
 _FACTOR_LABELS = {factor.key: factor.label for factor in get_mood_factors()}
 
 # Keep strong references so fire-and-forget tasks are not garbage-collected.
@@ -230,30 +231,28 @@ async def _generate_agent_output(
         },
         "statistics": statistics,
     }
-    messages = [
-        {
-            "role": "system",
-            "content": (
-                "Bạn viết phản hồi mood bằng tiếng Việt, bình tĩnh, cụ thể, không phán xét. "
-                "Không chẩn đoán, không khuyên thuốc, không khẳng định nhân quả, không Markdown/HTML. "
-                "Không tự tính, thêm hoặc viết bất kỳ chữ số nào; backend sẽ gắn evidence riêng. "
-                "Trả đúng JSON gồm acknowledgement, observation, action_title, "
-                "action_description, follow_up_prompt. acknowledgement tối đa 140 ký tự; "
-                "observation tối đa 260 ký tự. Mỗi trường chỉ 1-2 câu ngắn."
-            ),
-        },
-        {"role": "user", "content": json.dumps(safe_context, ensure_ascii=False)},
-    ]
-    response = await _client.chat.completions.create(
-        model=_MODEL,
-        messages=messages,
-        temperature=0.2,
-        response_format={"type": "json_object"},
+    instructions = (
+        "Bạn viết phản hồi mood bằng tiếng Việt, bình tĩnh, cụ thể, không phán xét. "
+        "Không chẩn đoán, không khuyên thuốc, không khẳng định nhân quả, không Markdown/HTML. "
+        "Không tự tính, thêm hoặc viết bất kỳ chữ số nào; backend sẽ gắn evidence riêng. "
+        "acknowledgement tối đa 140 ký tự; observation tối đa 260 ký tự. "
+        "Mỗi trường chỉ 1-2 câu ngắn."
     )
-    content = response.choices[0].message.content
-    if not content:
-        raise ValueError("Model returned an empty response")
-    output = AgentMoodOutput.model_validate_json(content)
+    response = await _client.responses.parse(
+        model=_MODEL,
+        instructions=instructions,
+        input=json.dumps(safe_context, ensure_ascii=False),
+        text_format=AgentMoodOutput,
+        max_output_tokens=500,
+        reasoning={"effort": "none"},
+        safety_identifier=hashlib.sha256(
+            f"vetlanh-user:{entry.user_id}".encode()
+        ).hexdigest(),
+        store=False,
+    )
+    output = response.output_parsed
+    if output is None:
+        raise ValueError("Model returned no parsed mood reflection")
     _validate_agent_text(output)
     return output
 

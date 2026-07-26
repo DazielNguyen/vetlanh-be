@@ -127,7 +127,7 @@
 |------|-----------|---------|
 | 404 | Conversation không tồn tại | `"Conversation not found"` |
 | 403 | Conversation thuộc user khác | `"Access denied"` |
-| SSE `error` event | Groq timeout / lỗi kết nối | `"Không thể kết nối với AI. Vui lòng thử lại."` |
+| SSE `error` event | OpenAI timeout / lỗi kết nối | `"Không thể kết nối với AI. Vui lòng thử lại."` |
 
 ---
 

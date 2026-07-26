@@ -40,7 +40,7 @@ Backend API for the Vet Lanh mental wellness platform. Built with FastAPI and as
 | Framework  | FastAPI 0.115 (Python 3.11)           |
 | Database   | PostgreSQL 16 (async via SQLAlchemy)  |
 | Migrations | Alembic                               |
-| AI Chat    | Groq API (LLaMA 3)                    |
+| AI Chat    | OpenAI Responses API                  |
 | Auth       | JWT (HS256) + Google OAuth 2.0        |
 | Encryption | Fernet (journal content at rest)      |
 | Hosting    | Vercel (serverless)                   |

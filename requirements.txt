@@ -1,5 +1,5 @@
 resend==2.30.1
-groq
+openai>=2.24.0,<3
 cloudinary==1.44.2
 slowapi==0.1.9
 alembic==1.18.4

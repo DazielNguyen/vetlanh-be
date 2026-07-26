@@ -11,7 +11,7 @@ import os
 
 # Set required env vars before any app module is imported so Settings() doesn't fail.
 # These are placeholders — no real API calls are made in unit tests (everything is mocked).
-os.environ.setdefault("GROQ_API_KEY", "test-groq-key")
+os.environ.setdefault("OPENAI_API_KEY", "test-openai-key")
 # Valid Fernet key for tests — does not need to match production key
 os.environ.setdefault("JOURNAL_ENCRYPTION_KEY", "_RcBQAY99s_WZg4RGlmiNqOCfKYXX-g0st5bsZLSl38=")
 

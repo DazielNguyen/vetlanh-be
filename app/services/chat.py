@@ -1,9 +1,10 @@
+import hashlib
 import json
 import logging
 from collections.abc import AsyncGenerator
 
 from fastapi import HTTPException
-from groq import AsyncGroq
+from openai import AsyncOpenAI
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -14,7 +15,7 @@ from app.services.crisis import CrisisLevel, detect_crisis_level
 from app.services.emotion import analyze_emotion, emotion_to_sentiment
 from app.services.mood import update_daily_mood
 
-_client = AsyncGroq(api_key=settings.GROQ_API_KEY)
+_client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
 
 logger = logging.getLogger(__name__)
 
@@ -86,8 +87,7 @@ _EXERCISE_KEYWORD_MAP: list[tuple[list[str], str]] = [
 # Phrases that indicate the AI is actively offering an exercise (not just mentioning one in passing)
 _EXERCISE_OFFER_SIGNALS = ["bài tập", "muốn thử", "vết lành"]
 
-# Llama 3.2 11B — no Anthropic approval needed; switch to Claude when AWS unlocks it
-_GROQ_MODEL = "llama-3.3-70b-versatile"
+_OPENAI_MODEL = settings.OPENAI_CHAT_MODEL
 
 _EXERCISE_CARDS: dict[str, ExerciseCard] = {
     "box-breathing": ExerciseCard(
@@ -187,11 +187,31 @@ _EXERCISE_CARDS: dict[str, ExerciseCard] = {
 
 
 def _build_converse_messages(history: list[Message]) -> list[dict]:
-    """Convert DB messages to Groq chat completions format."""
+    """Convert DB messages to OpenAI Responses API input items."""
     return [
         {"role": m.role, "content": m.content}
         for m in history
     ]
+
+
+def _safety_identifier(user_id: int) -> str:
+    """Stable privacy-preserving identifier for provider-side abuse monitoring."""
+    return hashlib.sha256(f"vetlanh-user:{user_id}".encode()).hexdigest()
+
+
+async def _create_response_stream(messages: list[dict], user_id: int):
+    """Create a privacy-preserving OpenAI response stream for one authenticated user."""
+    return await _client.responses.create(
+        model=_OPENAI_MODEL,
+        instructions=_SYSTEM_PROMPT,
+        input=messages,
+        max_output_tokens=1024,
+        reasoning={"effort": "low"},
+        text={"verbosity": "low"},
+        safety_identifier=_safety_identifier(user_id),
+        store=False,
+        stream=True,
+    )
 
 
 def _pick_exercise_card(assistant_text: str) -> ExerciseCard | None:
@@ -360,7 +380,7 @@ async def stream_chat(
     user_id: int,
     user_content: str,
 ) -> AsyncGenerator[str, None]:
-    """Save user message, stream Bedrock response, save assistant message.
+    """Save user message, stream OpenAI response, save assistant message.
 
     Yields SSE-formatted strings. The final 'done' event includes:
       message_id      — persisted assistant message ID
@@ -371,7 +391,7 @@ async def stream_chat(
     """
     conv = await get_conversation_or_403(db, conversation_id, user_id)
 
-    # Detect crisis BEFORE any AI call — level 3 skips Bedrock entirely
+    # Detect crisis BEFORE any AI call — level 3 skips OpenAI entirely
     # so the redirect signal reaches the client without an AI response appearing first.
     crisis_level = detect_crisis_level(user_content)
 
@@ -386,33 +406,28 @@ async def stream_chat(
         yield f"data: {json.dumps({'type': 'done', 'message_id': user_msg.id, 'exercise_card': None, 'sentiment': None, 'suggest_checkin': False, 'crisis_level': int(crisis_level)})}\n\n"
         return
 
-    # Build message history for Groq (last N messages including the one just saved)
+    # Build message history for OpenAI (last N messages including the one just saved)
     history_result = await db.execute(
         select(Message)
         .where(Message.conversation_id == conversation_id)
         .order_by(Message.created_at.desc())
         .limit(_MAX_HISTORY)
     )
-    # Reverse so oldest-first (Groq requires chronological order)
+    # Reverse so oldest-first for chronological model context.
     history = list(reversed(history_result.scalars().all()))
     converse_messages = _build_converse_messages(history)
 
-    # Stream from Groq and buffer the full response
+    # Stream from OpenAI Responses API and buffer the full response.
     full_response: list[str] = []
     try:
-        stream = await _client.chat.completions.create(
-            model=_GROQ_MODEL,
-            messages=[{"role": "system", "content": _SYSTEM_PROMPT}] + converse_messages,
-            max_tokens=1024,
-            stream=True,
-        )
-        async for chunk in stream:
-            text = chunk.choices[0].delta.content or ""
+        stream = await _create_response_stream(converse_messages, user_id)
+        async for event in stream:
+            text = event.delta if event.type == "response.output_text.delta" else ""
             if text:
                 full_response.append(text)
                 yield f"data: {json.dumps({'type': 'chunk', 'content': text})}\n\n"
     except Exception as e:
-        logger.error("Groq stream error for conversation %d: %s", conversation_id, e)
+        logger.error("OpenAI stream error for conversation %d: %s", conversation_id, e)
         # Rollback the flushed user_msg so there is no orphaned message with no paired reply
         await db.rollback()
         yield f"data: {json.dumps({'type': 'error', 'detail': 'Không thể kết nối với AI. Vui lòng thử lại.'})}\n\n"

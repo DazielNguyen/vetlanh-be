@@ -17,8 +17,11 @@ class Settings(BaseSettings):
     # Journal encryption — required; no default so startup fails loudly when missing
     JOURNAL_ENCRYPTION_KEY: str
 
-    # Groq — required for AI chat; no default so startup fails loudly when missing
-    GROQ_API_KEY: str
+    # OpenAI — required for AI chat and mood reflection; startup fails loudly when missing
+    OPENAI_API_KEY: str
+    # Override these in deployment when a different cost/quality tier is preferred.
+    OPENAI_CHAT_MODEL: str = "gpt-5.6-terra"
+    OPENAI_MOOD_MODEL: str = "gpt-5.6-luna"
 
     FRONTEND_URL: str = "http://localhost:5173"
 

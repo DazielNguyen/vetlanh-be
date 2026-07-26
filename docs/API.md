@@ -214,7 +214,7 @@
   │ POST /chat/conversations/{id}/messages │ Send message → get AI response via SSE stream │
   └────────────────────────────────────────┴───────────────────────────────────────────────┘
   
-  How it works: The AI companion uses Groq API (LLaMA 3). Responses are streamed as Server-Sent Events (SSE) — the frontend receives tokens one-by-one for a typing effect. It also detects
+  How it works: The AI companion uses OpenAI Responses API. Responses are streamed as Server-Sent Events (SSE) — the frontend receives tokens one-by-one for a typing effect. It also detects
   sentiment and suggests mood check-ins after 5+ negative messages.
   
   ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -442,7 +442,7 @@
   - Authentication (JWT + Google OAuth + username-based)
   - Mental health tools (PHQ-9, mood tracking, CBT thought records, safety plan)
   - Wellness features (exercises, journal, daily checklist, badges/streaks)
-  - AI companion (streamed chat via Groq/LLaMA 3)
+  - AI companion (streamed chat via OpenAI Responses API)
   - Content management (articles, sounds, resources)
   - Real-time (WebSocket notifications)
   - Admin (user management, subscription approval, error monitoring)
