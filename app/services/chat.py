@@ -419,13 +419,23 @@ async def stream_chat(
 
     # Stream from OpenAI Responses API and buffer the full response.
     full_response: list[str] = []
+    refused = False
+    failure_reason: str | None = None
     try:
         stream = await _create_response_stream(converse_messages, user_id)
         async for event in stream:
-            text = event.delta if event.type == "response.output_text.delta" else ""
-            if text:
-                full_response.append(text)
-                yield f"data: {json.dumps({'type': 'chunk', 'content': text})}\n\n"
+            if event.type == "response.output_text.delta" and event.delta:
+                full_response.append(event.delta)
+                yield f"data: {json.dumps({'type': 'chunk', 'content': event.delta})}\n\n"
+            elif event.type == "response.refusal.delta":
+                refused = True
+            elif event.type == "error":
+                failure_reason = event.message
+            elif event.type == "response.failed":
+                failure_reason = event.response.error.message if event.response.error else "unknown failure"
+            elif event.type == "response.incomplete":
+                details = event.response.incomplete_details
+                failure_reason = details.reason if details else "incomplete"
     except Exception as e:
         logger.error("OpenAI stream error for conversation %d: %s", conversation_id, e)
         # Rollback the flushed user_msg so there is no orphaned message with no paired reply
@@ -435,6 +445,19 @@ async def stream_chat(
 
     # Save assistant message after stream completes
     assistant_content = "".join(full_response)
+
+    # A refusal, an in-band failure/incomplete event, or a completed stream with no text
+    # at all must surface as an error — never as a silent empty assistant turn
+    # (see docs/openai-model-switch-integration.md §1).
+    if refused or failure_reason or not assistant_content:
+        logger.warning(
+            "OpenAI %s for conversation %d",
+            failure_reason or ("refused to answer" if refused else "completed with no output text"),
+            conversation_id,
+        )
+        await db.rollback()
+        yield f"data: {json.dumps({'type': 'error', 'detail': 'AI không thể trả lời tin nhắn này. Vui lòng thử lại.'})}\n\n"
+        return
     assistant_msg = Message(
         conversation_id=conversation_id, role="assistant", content=assistant_content
     )
