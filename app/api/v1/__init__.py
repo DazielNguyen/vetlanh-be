@@ -11,6 +11,7 @@ from app.api.v1.endpoints import (
     dashboard,
     errors,
     exercises,
+    feedback,
     health,
     journal,
     journal_prompts,
@@ -52,4 +53,5 @@ router.include_router(community.router)
 router.include_router(wellness.router)
 router.include_router(subscriptions.router)
 router.include_router(errors.router)
+router.include_router(feedback.router)
 router.include_router(admin_router)
