@@ -4,6 +4,7 @@ from . import (  # noqa: F401
     article,
     assessment,
     badge_notification,
+    community,
     conversation,
     exercise,
     journal,

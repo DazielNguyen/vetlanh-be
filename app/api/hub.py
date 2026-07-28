@@ -15,7 +15,14 @@ import logging
 import time
 import uuid
 
-from fastapi import APIRouter, Depends, Query, WebSocket, WebSocketDisconnect
+from fastapi import (
+    APIRouter,
+    Depends,
+    HTTPException,
+    Query,
+    WebSocket,
+    WebSocketDisconnect,
+)
 
 from app.core.deps import get_current_user
 from app.core.database import AsyncSessionLocal

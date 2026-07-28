@@ -21,3 +21,4 @@ plans/
 .DS_Store
 # Audio files — served via Docker volume / Nginx in production
 media/sounds/
+static/

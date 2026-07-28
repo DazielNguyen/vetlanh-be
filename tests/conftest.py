@@ -60,6 +60,50 @@ async def clean_db():
     crashed before its own cleanup ran.
     """
     async with AsyncSessionLocal() as db:
+        # Community moderation keeps evidence with RESTRICT foreign keys. Remove
+        # only rows linked to test-domain accounts, in dependency order.
+        test_users = (
+            f"SELECT id FROM users WHERE email LIKE '%@{TEST_EMAIL_DOMAIN}'"
+        )
+        test_matches = (
+            "SELECT id FROM community_matches "
+            f"WHERE user1_id IN ({test_users}) OR user2_id IN ({test_users})"
+        )
+        test_reports = (
+            "SELECT id FROM community_reports "
+            f"WHERE reporter_id IN ({test_users}) OR reported_id IN ({test_users})"
+        )
+        await db.execute(
+            text(
+                "DELETE FROM community_moderation_actions "
+                f"WHERE report_id IN ({test_reports})"
+            )
+        )
+        await db.execute(
+            text(
+                "DELETE FROM community_reports "
+                f"WHERE reporter_id IN ({test_users}) OR reported_id IN ({test_users})"
+            )
+        )
+        await db.execute(
+            text(
+                "DELETE FROM community_blocks "
+                f"WHERE blocker_id IN ({test_users}) OR blocked_id IN ({test_users})"
+            )
+        )
+        await db.execute(
+            text(
+                "DELETE FROM community_messages "
+                f"WHERE match_id IN ({test_matches})"
+            )
+        )
+        await db.execute(
+            text(
+                "DELETE FROM community_participations "
+                f"WHERE user_id IN ({test_users})"
+            )
+        )
+        await db.execute(text(f"DELETE FROM community_matches WHERE id IN ({test_matches})"))
         await db.execute(
             text(f"DELETE FROM users WHERE email LIKE '%@{TEST_EMAIL_DOMAIN}'")
         )
