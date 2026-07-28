@@ -3,6 +3,7 @@ from datetime import UTC, datetime, timedelta
 
 from fastapi import HTTPException
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.security import create_access_token, hash_password, verify_password
@@ -19,33 +20,35 @@ def _new_verification_token() -> tuple[str, datetime]:
     return token, expires_at
 
 
-async def register_user(db: AsyncSession, email: str, password: str) -> tuple[User, str]:
-    """Create a new unverified user and return (user, verification_token).
-
-    The caller is responsible for sending the verification email — typically
-    via FastAPI BackgroundTasks so the HTTP response is not delayed.
-    """
+async def register_user(db: AsyncSession, email: str, password: str) -> User:
+    """Create an active, verified email/password user."""
     result = await db.execute(select(User).where(User.email == email))
     if result.scalar_one_or_none():
         raise HTTPException(status_code=409, detail="Email already registered")
 
-    token, expires_at = _new_verification_token()
     user = User(
         email=email,
         hashed_password=hash_password(password),
-        is_verified=False,
-        verification_token=token,
-        verification_token_expires_at=expires_at,
+        is_active=True,
+        is_verified=True,
+        auth_provider="email",
+        account_type="email",
     )
     db.add(user)
-    # Commit immediately so the new user is visible to the very next request.
-    # Without this, FastAPI's get_db commits AFTER the response is sent (after
-    # BackgroundTasks), meaning a login request arriving immediately would query
-    # an empty DB and get a spurious 401.
+    # Commit immediately so the new user is visible to the login request that
+    # the frontend sends as soon as registration succeeds.
     # expire_on_commit=False (set on AsyncSessionLocal) keeps `user` readable.
-    await db.commit()
+    try:
+        await db.commit()
+    except IntegrityError:
+        # The database unique constraint is the final guard when two requests
+        # pass the existence check concurrently.
+        await db.rollback()
+        raise HTTPException(
+            status_code=409, detail="Email already registered"
+        ) from None
     await db.refresh(user)
-    return user, token
+    return user
 
 
 async def login_user(db: AsyncSession, email: str, password: str) -> str:
@@ -56,6 +59,9 @@ async def login_user(db: AsyncSession, email: str, password: str) -> str:
         # Return the same error for "wrong email" and "wrong password" —
         # different messages would let attackers enumerate valid emails.
         raise HTTPException(status_code=401, detail="Invalid credentials")
+
+    if not user.is_active:
+        raise HTTPException(status_code=403, detail="Account is deactivated")
 
     if not user.is_verified:
         # Use 403 (not 401) so the client knows credentials are correct but
@@ -179,7 +185,9 @@ async def get_user_by_email(db: AsyncSession, email: str) -> User:
 
 
 async def get_user_by_username(db: AsyncSession, username: str) -> User:
-    result = await db.execute(select(User).where(User.username == username, User.is_active == True))
+    result = await db.execute(
+        select(User).where(User.username == username, User.is_active)
+    )
     user = result.scalar_one_or_none()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_current_user, get_db
@@ -15,17 +15,9 @@ router = APIRouter()
 @router.post("/auth/register", response_model=UserResponse, status_code=201)
 async def register(
     body: UserRegister,
-    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
 ):
-    user, token = await register_user(db, body.email, body.password)
-
-    # Fire-and-forget — email is sent after the HTTP response is returned.
-    # If the SMTP server is unreachable, the error is logged but the user is
-    # still registered; they can use /auth/resend-verification.
-    background_tasks.add_task(send_verification_email, user.email, token)
-
-    return user
+    return await register_user(db, body.email, body.password)
 
 
 @router.post("/auth/register-username", response_model=Token, status_code=201)

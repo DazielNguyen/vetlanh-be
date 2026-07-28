@@ -20,7 +20,8 @@ class User(Base, TimestampMixin):
     # "email" for email+password registration, "username" for username-only users
     auth_provider: Mapped[str] = mapped_column(String(20), nullable=False, server_default="email")
 
-    # Email verification — False until user clicks the link in their inbox
+    # Kept for legacy accounts and sensitive flows such as changing email.
+    # New email/password registrations set this explicitly to True.
     is_verified: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     # Single-use token sent in the verification email; cleared after use
     verification_token: Mapped[str | None] = mapped_column(String(64), nullable=True)
