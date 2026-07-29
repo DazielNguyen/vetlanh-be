@@ -8,6 +8,8 @@ class SubscriptionPendingRow(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: uuid.UUID
+    user_id: int
+    email: str | None
     username: str | None
     displayName: str | None
     plan: str | None
@@ -29,6 +31,8 @@ class SubscriptionActiveRow(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: uuid.UUID
+    user_id: int
+    email: str | None
     username: str | None
     displayName: str | None
     plan: str | None

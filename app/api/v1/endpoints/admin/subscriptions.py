@@ -21,6 +21,8 @@ router = APIRouter()
 def _pending_row(sub: Subscription, user: User) -> SubscriptionPendingRow:
     return SubscriptionPendingRow(
         id=sub.id,
+        user_id=user.id,
+        email=user.email,
         username=user.username,
         displayName=user.display_name,
         plan=sub.plan_name,
@@ -35,6 +37,8 @@ def _pending_row(sub: Subscription, user: User) -> SubscriptionPendingRow:
 def _active_row(sub: Subscription, user: User) -> SubscriptionActiveRow:
     return SubscriptionActiveRow(
         id=sub.id,
+        user_id=user.id,
+        email=user.email,
         username=user.username,
         displayName=user.display_name,
         plan=sub.plan_name,
