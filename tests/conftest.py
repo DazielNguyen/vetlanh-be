@@ -107,5 +107,8 @@ async def clean_db():
         await db.execute(
             text(f"DELETE FROM users WHERE email LIKE '%@{TEST_EMAIL_DOMAIN}'")
         )
+        # events has no FK to users (unauthenticated ingestion) and no test-domain
+        # scoping is possible — clear it entirely for isolation between test runs.
+        await db.execute(text("DELETE FROM events"))
         await db.commit()
     yield

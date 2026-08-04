@@ -22,6 +22,7 @@ from app.api.v1.endpoints import (
     safety_plan,
     sounds,
     subscriptions,
+    telemetry,
     thought_records,
     users,
     wellness,
@@ -54,4 +55,5 @@ router.include_router(wellness.router)
 router.include_router(subscriptions.router)
 router.include_router(errors.router)
 router.include_router(feedback.router)
+router.include_router(telemetry.router)
 router.include_router(admin_router)
