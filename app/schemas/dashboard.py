@@ -34,3 +34,9 @@ class DashboardResponse(BaseModel):
 class DailyQuoteResponse(BaseModel):
     text: str
     author: str | None = None
+
+
+class PersonalizedRecommendationResponse(BaseModel):
+    title: str
+    rationale: str
+    url: str
