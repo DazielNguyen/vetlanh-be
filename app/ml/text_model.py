@@ -351,6 +351,25 @@ _ALL_HOPELESS_PHRASES: list[str] = [
 ]
 
 
+# ── Negation handling ─────────────────────────────────────────────────────────
+# Vietnamese negators attach directly in front of a short adjective ("không vui" =
+# not happy) instead of merging into one token, so plain substring matching on the
+# adjective alone ("vui") wrongly fires on the negated phrase too. Only
+# _POSITIVE_WORDS and _EMOTION_KEYWORDS need this guard: they're the lists built
+# from bare root words. The severity phrase lists already store full negated
+# phrases (e.g. "không vui" is its own _MILD_DEPRESSION entry), so they're immune.
+_NEGATORS = ("không", "chẳng", "chả", "đâu có", "hổng", "hông", "chưa")
+_NEGATION_WINDOW = 12  # chars scanned immediately before a keyword match
+
+
+def _is_negated_at(t: str, idx: int) -> bool:
+    """True if the match starting at idx is directly preceded by a Vietnamese negator."""
+    if idx < 0:
+        return False
+    prefix = t[max(0, idx - _NEGATION_WINDOW):idx]
+    return any(re.search(rf"\b{re.escape(neg)}\s+$", prefix) for neg in _NEGATORS)
+
+
 # ── Rule-based prediction engine ─────────────────────────────────────────────
 def _rule_based_predict(text: str, signals: list[str]) -> dict[str, Any]:
     t = text.lower()
@@ -360,7 +379,7 @@ def _rule_based_predict(text: str, signals: list[str]) -> dict[str, Any]:
     hopeless_hits = [p for p in _SEVERE_HOPELESS   if p in t]
     moderate_hits = [p for p in _MODERATE_DEPRESSION if p in t]
     mild_hits     = [p for p in _MILD_DEPRESSION    if p in t]
-    pos_hits      = [w for w in _POSITIVE_WORDS     if w in t]
+    pos_hits      = [w for w in _POSITIVE_WORDS if w in t and not _is_negated_at(t, t.find(w))]
 
     # Weighted score
     score = 0
@@ -401,8 +420,16 @@ def _rule_based_predict(text: str, signals: list[str]) -> dict[str, Any]:
     emo_scores: dict[str, float] = {e: 0.0 for e in EMOTION_LABELS}
     for emotion, keywords in _EMOTION_KEYWORDS.items():
         for kw in keywords:
-            if kw in t:
-                emo_scores[emotion] += 1.0
+            idx = t.find(kw)
+            if idx == -1:
+                continue
+            if _is_negated_at(t, idx):
+                # A negated positive word ("không vui") reads as sad, not happy —
+                # don't just drop the signal, redirect it to the real sentiment.
+                if emotion == "happy":
+                    emo_scores["sad"] += 1.0
+                continue
+            emo_scores[emotion] += 1.0
 
     # Contextual boosts
     if suicide_hits or hopeless_hits:
